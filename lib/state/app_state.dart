@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import '../models/movie.dart';
 import '../models/record.dart';
 import '../models/wishlist.dart';
+import '../models/summary.dart';
 import '../data/dummy_movies.dart';
 import '../data/dummy_record.dart';
 import '../data/dummy_wishlist.dart';
+import '../data/dummy_summary.dart';
 
 /// 기록 정렬 옵션
 enum RecordSortOption {
@@ -14,13 +16,14 @@ enum RecordSortOption {
 }
 
 /// 앱의 전역 상태를 관리하는 클래스
-/// Provider 패턴과 함께 사용되며, 영화 리스트, 북마크 상태, 관람 기록, 위시리스트를 관리합니다.
+/// Provider 패턴과 함께 사용되며, 영화 리스트, 북마크 상태, 관람 기록, 위시리스트, 통계를 관리합니다.
 /// 
 /// 사용 예시:
 /// ```dart
 /// final movies = context.watch<AppState>().movies;
 /// final records = context.watch<AppState>().records;
 /// final wishlist = context.watch<AppState>().wishlist;
+/// final statistics = context.watch<AppState>().statistics;
 /// final isBookmarked = context.read<AppState>().isBookmarked(movieId);
 /// context.read<AppState>().toggleBookmark(movieId);
 /// ```
@@ -383,5 +386,131 @@ class AppState extends ChangeNotifier {
   /// [genre] 필터링할 장르
   List<WishlistItem> getWishlistByGenre(String genre) {
     return wishlist.where((item) => item.movie.genres.contains(genre)).toList();
+  }
+
+  // ========== 통계(Statistics) 관련 기능 ==========
+
+  /// 취향 분석 통계 데이터를 반환합니다.
+  /// 더미데이터 예시.txt의 통계 정보를 기반으로 합니다.
+  /// 
+  /// 현재는 더미 데이터를 반환하지만, 향후 실제 기록 데이터를 기반으로 계산하도록 확장 가능합니다.
+  Statistics get statistics => DummySummary.getStatistics();
+
+  /// 요약 통계 정보를 반환합니다 (간편 접근용).
+  /// statistics.summary와 동일한 데이터입니다.
+  StatisticsSummary get statisticsSummary => statistics.summary;
+
+  /// 장르 분포 데이터를 반환합니다 (간편 접근용).
+  /// statistics.genreDistribution과 동일한 데이터입니다.
+  GenreDistribution get genreDistribution => statistics.genreDistribution;
+
+  /// 관람 추이 데이터를 반환합니다 (간편 접근용).
+  /// statistics.viewingTrend와 동일한 데이터입니다.
+  ViewingTrend get viewingTrend => statistics.viewingTrend;
+
+  /// 전체 기간 장르 분포를 반환합니다 (간편 접근용).
+  List<GenreDistributionItem> get genreDistributionAll => statistics.genreDistribution.all;
+
+  /// 최근 1년 장르 분포를 반환합니다 (간편 접근용).
+  List<GenreDistributionItem> get genreDistributionRecent1Year =>
+      statistics.genreDistribution.recent1Year;
+
+  /// 최근 3년 장르 분포를 반환합니다 (간편 접근용).
+  List<GenreDistributionItem> get genreDistributionRecent3Years =>
+      statistics.genreDistribution.recent3Years;
+
+  /// 연도별 관람 추이를 반환합니다 (간편 접근용).
+  List<ViewingTrendItem> get viewingTrendYearly => statistics.viewingTrend.yearly;
+
+  /// 월별 관람 추이를 반환합니다 (간편 접근용).
+  List<ViewingTrendItem> get viewingTrendMonthly => statistics.viewingTrend.monthly;
+
+  /// 실제 기록 데이터를 기반으로 통계를 계산합니다.
+  /// 향후 더미 데이터 대신 실제 데이터로 통계를 생성할 때 사용합니다.
+  /// 
+  /// 현재는 더미 데이터를 반환하지만, 실제 기록 데이터를 분석하는 로직으로 확장 가능합니다.
+  Statistics calculateStatisticsFromRecords() {
+    // 현재는 더미 데이터 반환
+    // 향후 실제 기록 데이터를 기반으로 통계 계산 구현 가능
+    return DummySummary.getStatistics();
+  }
+
+  /// 특정 기간의 장르 분포를 계산합니다.
+  /// 
+  /// [startDate] 시작일 (null이면 제한 없음)
+  /// [endDate] 종료일 (null이면 제한 없음)
+  /// Returns 해당 기간의 장르별 기록 수
+  Map<String, int> calculateGenreDistributionByDateRange(
+    DateTime? startDate,
+    DateTime? endDate,
+  ) {
+    var filteredRecords = allRecords;
+
+    // 기간 필터 적용
+    if (startDate != null || endDate != null) {
+      filteredRecords = filteredRecords.where((record) {
+        if (startDate != null && record.watchDate.isBefore(startDate)) {
+          return false;
+        }
+        if (endDate != null && record.watchDate.isAfter(endDate)) {
+          return false;
+        }
+        return true;
+      }).toList();
+    }
+
+    // 장르별 개수 계산
+    final genreCount = <String, int>{};
+    for (final record in filteredRecords) {
+      for (final genre in record.movie.genres) {
+        genreCount[genre] = (genreCount[genre] ?? 0) + 1;
+      }
+    }
+
+    return genreCount;
+  }
+
+  /// 실제 기록 데이터를 기반으로 요약 통계를 계산합니다.
+  /// 
+  /// Returns 계산된 요약 통계 (더미 데이터와 다를 수 있음)
+  StatisticsSummary calculateSummaryFromRecords() {
+    final allRecordsList = allRecords;
+    
+    if (allRecordsList.isEmpty) {
+      return StatisticsSummary(
+        totalRecords: 0,
+        averageRating: 0.0,
+        topGenre: '',
+      );
+    }
+
+    final totalRecords = allRecordsList.length;
+    final averageRating = allRecordsList
+            .map((r) => r.rating)
+            .reduce((a, b) => a + b) /
+        totalRecords;
+
+    // 최다 선호 장르 계산
+    final genreCount = <String, int>{};
+    for (final record in allRecordsList) {
+      for (final genre in record.movie.genres) {
+        genreCount[genre] = (genreCount[genre] ?? 0) + 1;
+      }
+    }
+
+    String topGenre = '';
+    int maxCount = 0;
+    genreCount.forEach((genre, count) {
+      if (count > maxCount) {
+        maxCount = count;
+        topGenre = genre;
+      }
+    });
+
+    return StatisticsSummary(
+      totalRecords: totalRecords,
+      averageRating: averageRating,
+      topGenre: topGenre.isEmpty ? '없음' : topGenre,
+    );
   }
 }
