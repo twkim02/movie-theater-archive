@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import '../models/movie.dart';
 import '../models/record.dart';
+import '../models/wishlist.dart';
 import '../data/dummy_movies.dart';
 import '../data/dummy_record.dart';
+import '../data/dummy_wishlist.dart';
 
 /// 기록 정렬 옵션
 enum RecordSortOption {
@@ -12,12 +14,13 @@ enum RecordSortOption {
 }
 
 /// 앱의 전역 상태를 관리하는 클래스
-/// Provider 패턴과 함께 사용되며, 영화 리스트, 북마크 상태, 관람 기록을 관리합니다.
+/// Provider 패턴과 함께 사용되며, 영화 리스트, 북마크 상태, 관람 기록, 위시리스트를 관리합니다.
 /// 
 /// 사용 예시:
 /// ```dart
 /// final movies = context.watch<AppState>().movies;
 /// final records = context.watch<AppState>().records;
+/// final wishlist = context.watch<AppState>().wishlist;
 /// final isBookmarked = context.read<AppState>().isBookmarked(movieId);
 /// context.read<AppState>().toggleBookmark(movieId);
 /// ```
@@ -30,6 +33,10 @@ class AppState extends ChangeNotifier {
   DateTime? _filterStartDate;
   DateTime? _filterEndDate;
   String _searchQuery = '';
+  
+  // 위시리스트 관련 상태
+  // 동적으로 추가된 위시리스트 아이템들을 저장 (더미데이터 외 추가된 항목)
+  final List<WishlistItem> _customWishlistItems = [];
 
   /// 모든 영화 리스트를 반환합니다.
   /// 더미데이터 예시.txt의 영화 정보를 기반으로 합니다.
@@ -247,5 +254,134 @@ class AppState extends ChangeNotifier {
       'averageRating': averageRating,
       'totalMovies': totalMovies,
     };
+  }
+
+  // ========== 위시리스트(Wishlist) 관련 기능 ==========
+
+  /// 모든 위시리스트 아이템 리스트를 반환합니다.
+  /// 더미데이터와 동적으로 추가된 아이템을 모두 포함합니다.
+  /// 더미데이터 예시.txt의 위시리스트 정보를 기반으로 합니다.
+  List<WishlistItem> get wishlist {
+    // 더미데이터와 동적으로 추가된 아이템을 합침
+    final allItems = <WishlistItem>[];
+    allItems.addAll(DummyWishlist.getWishlist());
+    allItems.addAll(_customWishlistItems);
+    
+    // savedAt 기준 내림차순 정렬 (최신순)
+    allItems.sort((a, b) => b.savedAt.compareTo(a.savedAt));
+    
+    return allItems;
+  }
+
+  /// 더미데이터에 포함된 위시리스트만 반환합니다.
+  List<WishlistItem> get dummyWishlist => DummyWishlist.getWishlist();
+
+  /// 특정 영화가 위시리스트에 있는지 확인합니다.
+  /// 
+  /// [movieId] 확인할 영화 ID
+  /// Returns true if the movie is in wishlist, false otherwise
+  bool isInWishlist(String movieId) {
+    return wishlist.any((item) => item.movie.id == movieId);
+  }
+
+  /// 위시리스트에 영화를 추가합니다.
+  /// 이미 있으면 추가하지 않습니다.
+  /// 
+  /// [movie] 추가할 영화
+  void addToWishlist(Movie movie) {
+    // 이미 위시리스트에 있는지 확인
+    if (isInWishlist(movie.id)) {
+      return;
+    }
+
+    // 새로운 WishlistItem 생성 (현재 시간으로 savedAt 설정)
+    final newItem = WishlistItem(
+      movie: movie,
+      savedAt: DateTime.now(),
+    );
+
+    _customWishlistItems.add(newItem);
+    notifyListeners();
+  }
+
+  /// 위시리스트에서 영화를 제거합니다.
+  /// 
+  /// [movieId] 제거할 영화 ID
+  void removeFromWishlist(String movieId) {
+    // 더미데이터는 제거할 수 없으므로, 동적으로 추가된 아이템만 제거
+    final beforeLength = _customWishlistItems.length;
+    _customWishlistItems.removeWhere(
+      (item) => item.movie.id == movieId,
+    );
+    final afterLength = _customWishlistItems.length;
+    
+    // 실제로 제거된 경우에만 UI 업데이트
+    if (beforeLength > afterLength) {
+      notifyListeners();
+    }
+  }
+
+  /// 특정 영화 ID로 위시리스트 아이템을 찾습니다.
+  /// 
+  /// [movieId] 찾을 영화 ID
+  /// Returns WishlistItem if found, null otherwise
+  WishlistItem? getWishlistItemByMovieId(String movieId) {
+    try {
+      return wishlist.firstWhere((item) => item.movie.id == movieId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// 위시리스트의 총 개수를 반환합니다.
+  int get wishlistCount => wishlist.length;
+
+  /// 위시리스트에 포함된 영화 목록만 반환합니다 (Movie 객체 리스트).
+  /// UI에서 그리드 뷰로 표시할 때 사용할 수 있습니다.
+  List<Movie> get wishlistMovies {
+    return wishlist.map((item) => item.movie).toList();
+  }
+
+  /// 위시리스트를 날짜 순으로 정렬된 리스트로 반환합니다.
+  /// 
+  /// [ascending] true면 오름차순(오래된 순), false면 내림차순(최신순, 기본값)
+  List<WishlistItem> getSortedWishlistByDate({bool ascending = false}) {
+    final items = List<WishlistItem>.from(wishlist);
+    items.sort((a, b) {
+      final comparison = a.savedAt.compareTo(b.savedAt);
+      return ascending ? comparison : -comparison;
+    });
+    return items;
+  }
+
+  /// 위시리스트를 영화 제목 순으로 정렬된 리스트로 반환합니다.
+  /// 
+  /// [ascending] true면 오름차순(가나다 순), false면 내림차순
+  List<WishlistItem> getSortedWishlistByTitle({bool ascending = true}) {
+    final items = List<WishlistItem>.from(wishlist);
+    items.sort((a, b) {
+      final comparison = a.movie.title.compareTo(b.movie.title);
+      return ascending ? comparison : -comparison;
+    });
+    return items;
+  }
+
+  /// 위시리스트를 영화 평점 순으로 정렬된 리스트로 반환합니다.
+  /// 
+  /// [ascending] true면 오름차순(낮은 평점 순), false면 내림차순(높은 평점 순, 기본값)
+  List<WishlistItem> getSortedWishlistByRating({bool ascending = false}) {
+    final items = List<WishlistItem>.from(wishlist);
+    items.sort((a, b) {
+      final comparison = a.movie.voteAverage.compareTo(b.movie.voteAverage);
+      return ascending ? comparison : -comparison;
+    });
+    return items;
+  }
+
+  /// 위시리스트에서 특정 장르의 영화만 필터링하여 반환합니다.
+  /// 
+  /// [genre] 필터링할 장르
+  List<WishlistItem> getWishlistByGenre(String genre) {
+    return wishlist.where((item) => item.movie.genres.contains(genre)).toList();
   }
 }
