@@ -3,6 +3,7 @@ import '../theme/colors.dart';
 import '../models/movie.dart';
 import '../widgets/add_record_sheet.dart';
 import '../data/saved_store.dart';
+import '../data/dummy_movies.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -35,8 +36,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final recentMovies = _applySearch(dummyMovies.where((m) => m.isRecent).toList());
-    final allMovies = _applySearch(dummyMovies.where((m) => !m.isRecent).toList());
+    final allMoviesList = DummyMovies.getMovies();
+    final recentMovies = _applySearch(allMoviesList.where((m) => m.isRecent).toList());
+    final allMovies = _applySearch(allMoviesList.where((m) => !m.isRecent).toList());
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -99,7 +101,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.pinkAccent.withOpacity(0.15),
+                      color: Colors.pinkAccent.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: const Text(
@@ -222,7 +224,7 @@ class MovieCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFF0E3E8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -241,7 +243,7 @@ class MovieCard extends StatelessWidget {
                 width: 78,
                 height: 110,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   width: 78,
                   height: 110,
                   color: Colors.black12,
@@ -349,7 +351,7 @@ class MovieCard extends StatelessWidget {
                             style: OutlinedButton.styleFrom(
                               foregroundColor: primaryColor,
                               minimumSize: const Size.fromHeight(40),
-                              side: BorderSide(color: primaryColor.withOpacity(0.55)),
+                              side: BorderSide(color: primaryColor.withValues(alpha: 0.55)),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),

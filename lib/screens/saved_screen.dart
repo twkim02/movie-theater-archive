@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../data/saved_store.dart';
 import '../models/movie.dart';
+import '../data/dummy_movies.dart';
 
 class SavedScreen extends StatefulWidget {
   const SavedScreen({super.key});
@@ -40,7 +41,8 @@ class _SavedScreenState extends State<SavedScreen> {
         child: ValueListenableBuilder<Set<String>>(
           valueListenable: SavedStore.savedIds,
           builder: (context, savedIds, _) {
-            final savedMovies = dummyMovies.where((m) => savedIds.contains(m.id)).toList();
+            final allMoviesList = DummyMovies.getMovies();
+            final savedMovies = allMoviesList.where((m) => savedIds.contains(m.id)).toList();
             final shown = _filterMovies(savedMovies);
 
             return ListView(
@@ -183,7 +185,7 @@ class _SavedGridCard extends StatelessWidget {
                         movie.posterUrl,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           color: Colors.black12,
                           alignment: Alignment.center,
                           child: const Icon(Icons.broken_image_outlined),
@@ -205,7 +207,7 @@ class _SavedGridCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.black12),
                   ),

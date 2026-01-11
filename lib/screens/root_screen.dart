@@ -61,7 +61,7 @@ class _RectBottomBar extends StatelessWidget {
             height: barHeight,
             decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(color: Colors.black.withOpacity(0.08)),
+                top: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
               ),
             ),
             child: Row(
