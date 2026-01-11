@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movie_diary_app/data/dummy_record.dart';
-import 'package:movie_diary_app/models/record.dart';
 
 void main() {
   group('DummyRecords 테스트', () {
