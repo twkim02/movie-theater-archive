@@ -173,8 +173,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
   bool _matchesQuery(Record r) {
     if (_query.trim().isEmpty) return true;
     final q = _query.trim();
-    final titleMatch = r.movie.title.contains(q);
-    final oneLinerMatch = r.oneLiner.contains(q);
+    final titleMatch = r.movie.title.toLowerCase().contains(q.toLowerCase());
+    final oneLinerMatch = r.oneLiner?.toLowerCase().contains(q.toLowerCase()) ?? false;
     return titleMatch || oneLinerMatch;
   }
 
@@ -447,7 +447,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                               title: r.movie.title,
                               posterUrl: r.movie.posterUrl,
                               rating: r.rating,
-                              oneLiner: r.oneLiner,
+                              oneLiner: r.oneLiner ?? '',
                               dateText: _formatDate(r.watchDate),
                               isRewatch: isRewatch,
                             );
@@ -572,7 +572,7 @@ class _DiaryGridCardRecord extends StatelessWidget {
                         posterUrl,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           color: Colors.black12,
                           alignment: Alignment.center,
                           child: const Icon(Icons.broken_image_outlined),
@@ -688,7 +688,7 @@ class _DiaryGridCardMostWatched extends StatelessWidget {
                     posterUrl,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (_, _, _) => Container(
                       color: Colors.black12,
                       alignment: Alignment.center,
                       child: const Icon(Icons.broken_image_outlined),
@@ -698,7 +698,7 @@ class _DiaryGridCardMostWatched extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                "${watchCount}회 관람",
+                "$watchCount회 관람", 
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: textSecondary,

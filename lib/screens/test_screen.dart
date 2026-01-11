@@ -159,7 +159,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                   Text('영화 제목: ${firstMovie.title}'),
                   Text('ID: ${firstMovie.id}'),
                   Text('장르: ${firstMovie.genres.join(", ")}'),
-                  Text('개봉일: ${firstMovie.releaseDate.year}-${firstMovie.releaseDate.month}-${firstMovie.releaseDate.day}'),
+                  Text('개봉일: ${firstMovie.releaseDate}'),
                   Text('러닝타임: ${firstMovie.runtime}분'),
                   Text('평점: ${firstMovie.voteAverage}'),
                   Text('최신작 여부: ${firstMovie.isRecent ? "예" : "아니오"}'),

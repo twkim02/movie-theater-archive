@@ -32,7 +32,7 @@ void main() {
         title: "테스트 영화",
         posterUrl: "https://test.jpg",
         genres: ["액션"],
-        releaseDate: DateTime.now(),
+        releaseDate: DateTime.now().toIso8601String().split('T')[0],
         runtime: 120,
         voteAverage: 4.0,
         isRecent: false,
@@ -49,7 +49,6 @@ void main() {
 
     test('이미 위시리스트에 있는 영화를 추가하면 중복되지 않음', () {
       // Given: 더미 위시리스트에 있는 영화 ID
-      final existingMovieId = appState.wishlist.first.movie.id;
       final existingMovie = appState.wishlist.first.movie;
 
       // When: 같은 영화를 다시 추가 시도
@@ -67,7 +66,7 @@ void main() {
         title: "제거 테스트 영화",
         posterUrl: "https://test.jpg",
         genres: ["드라마"],
-        releaseDate: DateTime.now(),
+        releaseDate: DateTime.now().toIso8601String().split('T')[0],
         runtime: 100,
         voteAverage: 3.5,
         isRecent: false,
@@ -257,7 +256,7 @@ void main() {
         title: "A 영화",
         posterUrl: "https://test1.jpg",
         genres: ["액션"],
-        releaseDate: DateTime.now(),
+        releaseDate: DateTime.now().toIso8601String().split('T')[0],
         runtime: 100,
         voteAverage: 4.5,
         isRecent: false,
@@ -267,7 +266,7 @@ void main() {
         title: "B 영화",
         posterUrl: "https://test2.jpg",
         genres: ["드라마"],
-        releaseDate: DateTime.now(),
+        releaseDate: DateTime.now().toIso8601String().split('T')[0],
         runtime: 120,
         voteAverage: 3.5,
         isRecent: false,
@@ -305,7 +304,7 @@ void main() {
         title: "통합 테스트 영화",
         posterUrl: "https://test.jpg",
         genres: ["코미디"],
-        releaseDate: DateTime.now(),
+        releaseDate: DateTime.now().toIso8601String().split('T')[0],
         runtime: 90,
         voteAverage: 4.0,
         isRecent: false,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../data/record_store.dart';
 import '../data/saved_store.dart';
+import '../data/dummy_movies.dart';
 import '../models/record.dart';
 import '../models/movie.dart';
 import '../widgets/add_record_sheet.dart';
@@ -267,7 +268,7 @@ class _TasteScreenState extends State<TasteScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.black12),
                 ),
@@ -309,7 +310,8 @@ class _TasteScreenState extends State<TasteScreen> {
     required Set<String> watchedIds,
     required Map<String, double> genreAvgRating,
   }) {
-    final candidates = dummyMovies.where((m) => !watchedIds.contains(m.id)).toList();
+    final allMoviesList = DummyMovies.getMovies();
+    final candidates = allMoviesList.where((m) => !watchedIds.contains(m.id)).toList();
 
     if (favoriteGenre != '—') {
       final fav = candidates
@@ -356,7 +358,7 @@ class _StatCard extends StatelessWidget {
         border: Border.all(color: Colors.black12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -413,7 +415,7 @@ class _Panel extends StatelessWidget {
           border: Border.all(color: Colors.black12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -734,7 +736,7 @@ class _LinePainter extends CustomPainter {
     const minV = 0.0;
 
     final gridPaint = Paint()
-      ..color = Colors.black.withOpacity(0.12)
+      ..color = Colors.black.withValues(alpha: 0.12)
       ..strokeWidth = 1;
 
     // y grid
@@ -792,7 +794,7 @@ class _LinePainter extends CustomPainter {
     final labelStyle = TextStyle(
       fontSize: 11.5,
       fontWeight: FontWeight.w800,
-      color: Colors.black.withOpacity(0.45),
+      color: Colors.black.withValues(alpha: 0.45),
     );
 
     for (int i = 0; i < points.length; i++) {
@@ -842,7 +844,7 @@ class _RecommendCard extends StatelessWidget {
         border: Border.all(color: Colors.black12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -857,7 +859,7 @@ class _RecommendCard extends StatelessWidget {
               width: 56,
               height: 78,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (_, _, _) => Container(
                 width: 56,
                 height: 78,
                 color: Colors.black12,

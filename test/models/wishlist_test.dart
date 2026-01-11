@@ -13,7 +13,7 @@ void main() {
         title: "미키 17",
         posterUrl: "https://image.tmdb.org/t/p/w500/test.jpg",
         genres: ["SF", "코미디", "모험"],
-        releaseDate: DateTime.parse("2025-02-28"),
+        releaseDate: "2025-02-28",
         runtime: 137,
         voteAverage: 3.4,
         isRecent: false,

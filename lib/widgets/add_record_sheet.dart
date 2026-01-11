@@ -84,6 +84,7 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
 
     final record = Record(
       id: RecordStore.nextId(),
+      userId: 1,
       movie: widget.movie,
       rating: rating,
       watchDate: watchDate,
@@ -157,7 +158,7 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                                 width: 52,
                                 height: 70,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
+                                errorBuilder: (_, _, _) => Container(
                                   width: 52,
                                   height: 70,
                                   color: Colors.black12,

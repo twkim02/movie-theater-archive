@@ -13,7 +13,7 @@ void main() {
         title: "기생충",
         posterUrl: "https://image.tmdb.org/t/p/w500/test.jpg",
         genres: ["코미디", "스릴러", "드라마"],
-        releaseDate: DateTime.parse("2019-05-30"),
+        releaseDate: "2019-05-30",
         runtime: 131,
         voteAverage: 4.3,
         isRecent: false,

@@ -25,7 +25,7 @@ class Movie {
       title: json['title'] as String,
       posterUrl: json['posterUrl'] as String? ?? '',
       genres: List<String>.from(json['genres'] ?? []),
-      releaseDate: DateTime.parse(json['releaseDate'] as String),
+      releaseDate: json['releaseDate'] as String? ?? '',
       runtime: (json['runtime'] as num?)?.toInt() ?? 0,
       voteAverage: (json['voteAverage'] as num?)?.toDouble() ?? 0.0,
       isRecent: json['isRecent'] as bool? ?? false,
@@ -38,7 +38,7 @@ class Movie {
       'title': title,
       'posterUrl': posterUrl,
       'genres': genres,
-      'releaseDate': releaseDate.toIso8601String().split('T')[0], // YYYY-MM-DD 형식
+      'releaseDate': releaseDate, // YYYY-MM-DD 형식의 문자열
       'runtime': runtime,
       'voteAverage': voteAverage,
       'isRecent': isRecent,
@@ -50,7 +50,7 @@ class Movie {
     String? title,
     String? posterUrl,
     List<String>? genres,
-    DateTime? releaseDate,
+    String? releaseDate,
     int? runtime,
     double? voteAverage,
     bool? isRecent,
@@ -69,6 +69,6 @@ class Movie {
 
   @override
   String toString() {
-    return 'Movie(id: $id, title: $title, genres: ${genres.join(", ")}, releaseDate: ${releaseDate.toIso8601String().split("T")[0]}, rating: $voteAverage)';
+    return 'Movie(id: $id, title: $title, genres: ${genres.join(", ")}, releaseDate: $releaseDate, rating: $voteAverage)';
   }
 }

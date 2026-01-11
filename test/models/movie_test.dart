@@ -24,7 +24,7 @@ void main() {
       expect(movie.title, "기생충");
       expect(movie.posterUrl, "https://image.tmdb.org/t/p/w500/test.jpg");
       expect(movie.genres, ["코미디", "스릴러", "드라마"]);
-      expect(movie.releaseDate, DateTime.parse("2019-05-30"));
+      expect(movie.releaseDate, "2019-05-30");
       expect(movie.runtime, 131);
       expect(movie.voteAverage, 4.3);
       expect(movie.isRecent, false);
@@ -37,7 +37,7 @@ void main() {
         title: "기생충",
         posterUrl: "https://image.tmdb.org/t/p/w500/test.jpg",
         genres: ["코미디", "스릴러"],
-        releaseDate: DateTime.parse("2019-05-30"),
+        releaseDate: "2019-05-30",
         runtime: 131,
         voteAverage: 4.3,
         isRecent: false,
@@ -87,7 +87,7 @@ void main() {
         title: "기생충",
         posterUrl: "https://test.jpg",
         genres: ["드라마"],
-        releaseDate: DateTime.parse("2019-05-30"),
+        releaseDate: "2019-05-30",
         runtime: 131,
         voteAverage: 4.3,
         isRecent: false,

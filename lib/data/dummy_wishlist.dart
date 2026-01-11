@@ -16,10 +16,11 @@ class DummyWishlist {
         title: '알 수 없는 영화',
         posterUrl: '',
         genres: [],
-        releaseDate: DateTime.now(),
+        releaseDate: '',
         runtime: 0,
         voteAverage: 0.0,
         isRecent: false,
+      ),
     );
     return movie;
   }
