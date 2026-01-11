@@ -3,8 +3,8 @@ class Movie {
   final String title;
   final String posterUrl;
   final List<String> genres;
-  final DateTime releaseDate;
-  final int runtime;
+  final String releaseDate;   // 개봉일
+  final int runtime;          // 러닝타임(분)
   final double voteAverage;
   final bool isRecent;
 
