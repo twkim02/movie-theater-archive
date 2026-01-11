@@ -8,6 +8,7 @@
 2. [시각적 테스트 화면](#2-시각적-테스트-화면)
 3. [각 테스트의 의미](#3-각-테스트의-의미)
 4. [테스트 결과 해석](#4-테스트-결과-해석)
+5. [전체 기능 테스트 가이드](#5-전체-기능-테스트-가이드)
 
 ---
 
@@ -50,14 +51,34 @@ flutter test test/data/dummy_movies_test.dart
 
 ### 테스트 화면 접근 방법
 
-#### 방법 1: RootScreen 임시 수정 (개발 중에만)
+#### 방법 1: RootScreen에 FloatingActionButton 추가 (권장)
 
-`lib/screens/root_screen.dart` 파일을 임시로 수정:
+`lib/screens/root_screen.dart` 파일에 FloatingActionButton 추가:
 
 ```dart
 import 'test_screen.dart'; // 추가
 
-// screens 리스트에 추가
+// Scaffold에 floatingActionButton 추가
+floatingActionButton: FloatingActionButton(
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const TestScreen()),
+    );
+  },
+  tooltip: '코드 검증 테스트',
+  child: const Icon(Icons.bug_report),
+),
+```
+
+#### 방법 2: RootScreen 임시 수정 (개발 중에만)
+
+`lib/screens/root_screen.dart` 파일을 임시로 수정하여 테스트 화면을 첫 번째 탭으로 설정:
+
+```dart
+import 'test_screen.dart'; // 추가
+
+// screens 리스트에 추가 (임시로 첫 번째로)
 final screens = [
   const TestScreen(),  // 테스트 화면을 첫 번째로 추가
   const ExploreScreen(),
@@ -67,30 +88,60 @@ final screens = [
 ];
 ```
 
-#### 방법 2: 직접 네비게이션 추가
+#### 방법 3: 네비게이션 바에 테스트 탭 추가 (개발 중에만)
 
-`RootScreen`에 FloatingActionButton으로 테스트 화면 접근:
+테스트 화면을 5번째 탭으로 추가 (개발 중에만 사용):
 
 ```dart
-floatingActionButton: FloatingActionButton(
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const TestScreen()),
-    );
-  },
-  child: const Icon(Icons.bug_report),
-),
+final screens = [
+  const ExploreScreen(),
+  const DiaryScreen(),
+  const SavedScreen(),
+  const TasteScreen(),
+  const TestScreen(), // 개발 중에만 추가
+];
+
+// NavigationBar destinations에도 추가
+destinations: const [
+  // ... 기존 4개 탭
+  NavigationDestination(
+    icon: Icon(Icons.bug_report_outlined),
+    selectedIcon: Icon(Icons.bug_report),
+    label: '테스트',
+  ),
+],
 ```
 
 ### 테스트 화면 기능
 
-테스트 화면에서는 다음을 확인할 수 있습니다:
+테스트 화면은 **5개의 탭**으로 구성되어 있습니다:
 
-1. ✅ **테스트 요약**: 모든 기능이 정상 작동하는지 요약
-2. 📝 **Movie 모델 테스트**: JSON 변환, copyWith 등
-3. 🔄 **AppState 테스트**: 북마크 기능 등
-4. 📚 **북마크된 영화 목록**: 실제 북마크 상태 확인
+#### 📊 요약 탭
+- 전체 기능 통합 테스트 결과 요약
+- 영화, 기록, 위시리스트, 통계 데이터 로드 상태 확인
+
+#### 🎬 영화 탭
+1. ✅ **Movie 모델 테스트**: JSON 변환, copyWith 등
+2. 🔄 **북마크 기능 테스트**: 북마크 추가/제거/토글
+3. 📚 **북마크된 영화 목록**: 실제 북마크 상태 확인
+
+#### 📝 기록 탭
+1. ✅ **기록 통계**: 전체 기록 수, 평균 별점, 본 영화 수
+2. 🔄 **기록 정렬**: 최신순, 별점순, 많이 본 순
+3. 🔍 **기록 필터**: 검색어(제목/태그/한줄평) 필터링
+4. 📋 **기록 목록**: 필터링 및 정렬된 기록 목록 확인
+
+#### ❤️ 위시리스트 탭
+1. ✅ **위시리스트 통계**: 전체/더미/추가된 아이템 수
+2. ➕ **위시리스트 추가/제거**: 영화 추가 및 제거 기능
+3. 🔄 **위시리스트 정렬**: 날짜순, 제목순, 평점순
+4. 📋 **위시리스트 목록**: 현재 위시리스트 아이템 확인
+
+#### 📈 통계 탭
+1. ✅ **요약 통계**: 전체 기록 수, 평균 별점, 최다 선호 장르
+2. 🎭 **장르 분포**: 전체/최근 1년/최근 3년 장르별 분포
+3. 📊 **관람 추이**: 연도별/월별 관람 횟수 추이
+4. 🧮 **실제 데이터 계산**: 기록 데이터 기반 통계 계산
 
 ---
 
@@ -142,6 +193,48 @@ floatingActionButton: FloatingActionButton(
 #### 불변성 테스트
 - **목적**: 내부 상태가 직접 수정되지 않도록 보호되는지 확인
 - **검증**: 안전한 상태 관리
+
+### Record 테스트 (`test/models/record_test.dart`, `test/state/app_state_record_test.dart`)
+
+#### Record 모델 테스트
+- **목적**: JSON 변환, copyWith, toString 등 모델 기능 확인
+- **검증**: API 응답을 올바르게 파싱할 수 있는지
+
+#### 기록 조회 및 정렬 테스트
+- **목적**: 기록 리스트 조회, 정렬(최신순/별점순/많이 본 순) 기능 확인
+- **검증**: 정렬 옵션이 올바르게 작동하는지
+
+#### 기록 필터 테스트
+- **목적**: 기간 필터, 검색어 필터 기능 확인
+- **검증**: 필터링이 정확하게 작동하는지
+
+### Wishlist 테스트 (`test/models/wishlist_test.dart`, `test/state/app_state_wishlist_test.dart`)
+
+#### WishlistItem 모델 테스트
+- **목적**: JSON 변환, copyWith 등 모델 기능 확인
+- **검증**: 위시리스트 데이터 구조가 올바른지
+
+#### 위시리스트 관리 테스트
+- **목적**: 추가/제거, 존재 확인 기능 확인
+- **검증**: 위시리스트 상태 관리가 정상 작동하는지
+
+#### 위시리스트 정렬 및 필터 테스트
+- **목적**: 날짜순/제목순/평점순 정렬, 장르 필터 기능 확인
+- **검증**: 다양한 정렬 옵션이 작동하는지
+
+### Statistics 테스트 (`test/models/summary_test.dart`, `test/state/app_state_statistics_test.dart`)
+
+#### Statistics 모델 테스트
+- **목적**: 통계 데이터 모델의 JSON 변환 확인
+- **검증**: API 응답 구조와 일치하는지
+
+#### 통계 조회 테스트
+- **목적**: 요약 통계, 장르 분포, 관람 추이 조회 기능 확인
+- **검증**: 모든 통계 데이터가 올바르게 로드되는지
+
+#### 실제 데이터 계산 테스트
+- **목적**: 기록 데이터 기반 통계 계산 기능 확인
+- **검증**: 실제 데이터로 통계를 생성할 수 있는지
 
 ---
 
@@ -219,6 +312,49 @@ test('문제가 있는 테스트', () {
 
 ---
 
+## 5. 전체 기능 테스트 가이드
+
+### 테스트 화면에서 확인할 수 있는 모든 기능
+
+#### 🎬 영화 기능
+- ✅ Movie 모델 JSON 변환 (`toJson`, `fromJson`)
+- ✅ Movie 모델 `copyWith` 메서드
+- ✅ 북마크 추가/제거/토글
+- ✅ 북마크된 영화 목록 조회
+
+#### 📝 기록 기능
+- ✅ 전체 기록 목록 조회
+- ✅ 기록 정렬 (최신순, 별점순, 많이 본 순)
+- ✅ 기록 검색 필터 (제목, 태그, 한줄평)
+- ✅ 기록 통계 (총 기록 수, 평균 별점, 본 영화 수)
+- ✅ 특정 영화의 기록 조회
+
+#### ❤️ 위시리스트 기능
+- ✅ 위시리스트 목록 조회 (더미 + 추가된 아이템)
+- ✅ 위시리스트에 영화 추가
+- ✅ 위시리스트에서 영화 제거 (동적으로 추가한 것만)
+- ✅ 위시리스트 정렬 (날짜순, 제목순, 평점순)
+- ✅ 위시리스트 장르 필터링
+- ✅ 위시리스트 통계
+
+#### 📈 통계 기능
+- ✅ 요약 통계 (총 기록 수, 평균 별점, 최다 선호 장르)
+- ✅ 장르 분포 (전체, 최근 1년, 최근 3년)
+- ✅ 관람 추이 (연도별, 월별)
+- ✅ 실제 기록 데이터 기반 통계 계산
+
+### 테스트 화면 사용 방법
+
+1. **앱 실행**: `flutter run`으로 앱을 실행합니다
+2. **테스트 화면 접근**: 
+   - 방법 1: `RootScreen`에서 `TestScreen`으로 네비게이션 추가
+   - 방법 2: 임시로 `RootScreen`의 첫 번째 탭을 `TestScreen`으로 설정
+3. **각 탭 탐색**: 5개의 탭을 클릭하여 각 기능을 테스트
+4. **버튼 클릭**: 각 기능의 버튼을 클릭하여 동작 확인
+5. **데이터 확인**: 화면에 표시된 데이터가 예상과 일치하는지 확인
+
+---
+
 ## 🚀 최종 확인
 
 모든 테스트를 통과했다면:
@@ -227,8 +363,23 @@ test('문제가 있는 테스트', () {
 2. ✅ **DummyMovies**: 7개 영화 데이터 정상 로드
 3. ✅ **AppState**: 북마크 기능, 상태 관리 정상 작동
 4. ✅ **Provider 연결**: 앱 전반에서 상태 접근 가능
+5. ✅ **Record 기능**: 기록 조회, 정렬, 필터링 정상 작동
+6. ✅ **Wishlist 기능**: 위시리스트 추가/제거/정렬 정상 작동
+7. ✅ **Statistics 기능**: 통계 조회 및 계산 정상 작동
 
 **이제 팀원과 안심하고 코드를 합칠 수 있습니다!** 🎉
+
+---
+
+## 📊 테스트 커버리지 요약
+
+| 기능 영역 | 모델 테스트 | 데이터 테스트 | 상태 관리 테스트 | 시각적 테스트 |
+|----------|-----------|------------|--------------|------------|
+| 영화 (Movie) | ✅ 5개 | ✅ 4개 | ✅ 7개 | ✅ 완료 |
+| 기록 (Record) | ✅ 7개 | ✅ 8개 | ✅ 19개 | ✅ 완료 |
+| 위시리스트 (Wishlist) | ✅ 8개 | ✅ 7개 | ✅ 19개 | ✅ 완료 |
+| 통계 (Statistics) | ✅ 14개 | ✅ 9개 | ✅ 20개 | ✅ 완료 |
+| **전체** | **34개** | **28개** | **65개** | **✅ 완료** |
 
 ---
 
