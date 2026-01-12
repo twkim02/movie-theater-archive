@@ -97,7 +97,7 @@ void main() {
         oneLiner: "테스트 한줄평",
         detailedReview: "테스트 상세 리뷰",
         tags: ["혼자", "OTT"],
-        photoUrl: null,
+        photoPaths: const [],
       );
       final recordId = await RecordRepository.addRecord(record);
       expect(recordId, greaterThan(0));
@@ -148,7 +148,7 @@ void main() {
         oneLiner: null,
         detailedReview: null,
         tags: ["커스텀태그1", "커스텀태그2"],
-        photoUrl: null,
+        photoPaths: const [],
       );
       final recordId = await RecordRepository.addRecord(record);
 
@@ -181,7 +181,7 @@ void main() {
         oneLiner: "복합 테스트",
         detailedReview: "상세 리뷰",
         tags: ["극장", "친구"],
-        photoUrl: null,
+        photoPaths: const [],
       );
       final recordId = await RecordRepository.addRecord(record);
       
@@ -222,7 +222,7 @@ void main() {
         oneLiner: null,
         detailedReview: null,
         tags: [],
-        photoUrl: null,
+        photoPaths: const [],
       );
       final recordId = await RecordRepository.addRecord(record);
 
@@ -249,7 +249,7 @@ void main() {
           oneLiner: "기록 $i",
           detailedReview: null,
           tags: ["태그$i"],
-          photoUrl: null,
+          photoPaths: const [],
         );
         final recordId = await RecordRepository.addRecord(record);
         records.add(recordId);

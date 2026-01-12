@@ -62,7 +62,7 @@ void main() {
         oneLiner: '재미있는 영화',
         detailedReview: '상세 리뷰 내용',
         tags: ['혼자', '극장'],
-        photoUrl: null,
+        photoPaths: const [],
         movie: testMovie,
       );
 

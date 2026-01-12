@@ -91,7 +91,7 @@ void main() {
         oneLiner: "초기 한줄평",
         detailedReview: "초기 상세 리뷰",
         tags: ["혼자", "OTT"],
-        photoUrl: null,
+        photoPaths: const [],
       );
       final recordId = await RecordRepository.addRecord(record);
       expect(recordId, greaterThan(0));
@@ -154,7 +154,7 @@ void main() {
         oneLiner: null,
         detailedReview: null,
         tags: [],
-        photoUrl: null,
+        photoPaths: const [],
       );
       final recordId = await RecordRepository.addRecord(record);
 
@@ -196,7 +196,7 @@ void main() {
         oneLiner: "액션 영화",
         detailedReview: null,
         tags: ["혼자", "OTT"],
-        photoUrl: null,
+        photoPaths: const [],
       );
       final record2 = Record(
         id: 0,
@@ -207,7 +207,7 @@ void main() {
         oneLiner: "SF 영화",
         detailedReview: null,
         tags: ["친구", "극장"],
-        photoUrl: null,
+        photoPaths: const [],
       );
       final record3 = Record(
         id: 0,
@@ -218,7 +218,7 @@ void main() {
         oneLiner: "코미디 영화",
         detailedReview: null,
         tags: ["가족"],
-        photoUrl: null,
+        photoPaths: const [],
       );
       await RecordRepository.addRecord(record1);
       await RecordRepository.addRecord(record2);
@@ -230,7 +230,6 @@ void main() {
       expect(searchByTitle.any((r) => r.movie.id == testMovie1.id), true);
 
       // When: 태그로 검색 (태그는 검색에 포함되지 않으므로 한줄평으로 검색)
-      final searchByOneLiner = await RecordRepository.searchRecords("OTT");
       // 검색 결과가 있을 수 있음 (한줄평에 "OTT"가 포함된 경우)
 
       // When: 한줄평으로 검색
@@ -301,7 +300,7 @@ void main() {
         oneLiner: "재시작 테스트",
         detailedReview: "상세 리뷰",
         tags: ["극장", "친구", "커스텀태그"],
-        photoUrl: null,
+        photoPaths: const [],
       );
       final recordId = await RecordRepository.addRecord(record);
 
@@ -349,7 +348,7 @@ void main() {
       await WishlistRepository.addToWishlist(testUserId, testMovie1.id);
 
       // When: 같은 영화를 다시 추가 시도
-      final added2 = await WishlistRepository.addToWishlist(testUserId, testMovie1.id);
+      await WishlistRepository.addToWishlist(testUserId, testMovie1.id);
 
       // Then: 중복 추가는 무시되어야 함 (또는 false 반환)
       final wishlist = await WishlistRepository.getWishlist(testUserId);

@@ -446,7 +446,7 @@ class MovieDatabase {
       'watch_date': record.watchDate.toIso8601String().split('T')[0], // YYYY-MM-DD
       'one_liner': record.oneLiner,
       'detailed_review': record.detailedReview,
-      'photo_path': record.photoUrl,
+      'photo_path': record.photoPaths.isNotEmpty ? record.photoPaths.first : null,
       'created_at': DateTime.now().millisecondsSinceEpoch,
     };
   }
@@ -460,6 +460,10 @@ class MovieDatabase {
     final recordId = map['record_id'] as int;
     final tagNames = await TagRepository.getTagsByRecordId(recordId);
 
+    // photo_path를 List<String>으로 변환
+    final photoPath = map['photo_path'] as String?;
+    final photoPaths = photoPath != null ? [photoPath] : <String>[];
+
     return Record(
       id: recordId,
       userId: map['user_id'] as int,
@@ -468,7 +472,7 @@ class MovieDatabase {
       oneLiner: map['one_liner'] as String?,
       detailedReview: map['detailed_review'] as String?,
       tags: tagNames,
-      photoUrl: map['photo_path'] as String?,
+      photoPaths: photoPaths,
       movie: movie,
     );
   }
