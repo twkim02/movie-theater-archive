@@ -1,23 +1,30 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../models/movie.dart';
 import '../theme/colors.dart';
 import '../models/record.dart';
-import '../data/record_store.dart';
+import '../state/app_state.dart';
+import '../services/user_initialization_service.dart';
 
-void openAddRecordSheet(BuildContext context, Movie movie) {
+void openAddRecordSheet(BuildContext context, Movie movie, {Record? initialRecord}) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _AddRecordSheet(movie: movie),
+    builder: (_) => _AddRecordSheet(movie: movie, initialRecord: initialRecord),
   );
 }
 
 class _AddRecordSheet extends StatefulWidget {
   final Movie movie;
-  const _AddRecordSheet({required this.movie});
+  final Record? initialRecord;
+  const _AddRecordSheet({required this.movie, this.initialRecord});
 
   @override
   State<_AddRecordSheet> createState() => _AddRecordSheetState();
@@ -32,27 +39,50 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
   final TextEditingController oneLinerController = TextEditingController();
   final TextEditingController detailedController = TextEditingController();
 
+  // ✅ 고정 태그
   final List<String> tags = ["혼자", "친구", "가족", "극장", "OTT"];
+  // ✅ 선택/입력 태그가 모두 들어가는 최종 태그(최대 3개)
   final Set<String> selectedTags = {};
+
+  // ✅ 해시태그 입력
+  final TextEditingController _hashtagCtrl = TextEditingController();
+  String? _hashtagError;
+
+  // ✅ 사진 선택 상태
+  final ImagePicker _picker = ImagePicker();
+  final List<String> photoPaths = []; // 앱 내부로 복사된 로컬 경로들
+
+  @override
+  void initState() {
+    super.initState();
+
+    final r = widget.initialRecord;
+    if (r != null) {
+      watchDate = r.watchDate;
+      rating = r.rating;
+      oneLinerController.text = r.oneLiner ?? '';
+      detailedController.text = r.detailedReview ?? '';
+      selectedTags.addAll(r.tags);
+      photoPaths.addAll(r.photoPaths);
+    }
+  }
 
   @override
   void dispose() {
     oneLinerController.dispose();
     detailedController.dispose();
+    _hashtagCtrl.dispose();
     super.dispose();
   }
 
-  String get year {
-    if (widget.movie.releaseDate.length >= 4) {
-      return widget.movie.releaseDate.substring(0, 4);
-    }
-    return "";
+  String formatDate(DateTime d) {
+    final mm = d.month.toString().padLeft(2, '0');
+    final dd = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$mm-$dd';
   }
 
-  String get genreYearText {
-    final g = widget.movie.genres.take(2).join('·');
-    return '$g · $year';
-  }
+  TextStyle get labelStyle =>
+      const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF777777));
 
   Future<void> pickDate() async {
     final picked = await showDatePicker(
@@ -66,41 +96,173 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
     }
   }
 
-  String formatDate(DateTime d) {
-    final mm = d.month.toString().padLeft(2, '0');
-    final dd = d.day.toString().padLeft(2, '0');
-    return '${d.year}-$mm-$dd';
+  // ✅ 고정태그 선택 토글 (최대 3개 제한)
+  void _toggleFixedTag(String t) {
+    final on = selectedTags.contains(t);
+    setState(() {
+      if (on) {
+        selectedTags.remove(t);
+      } else {
+        if (selectedTags.length >= 3) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("태그는 최대 3개까지 선택할 수 있어요")),
+          );
+          return;
+        }
+        selectedTags.add(t);
+      }
+      _hashtagError = null;
+    });
   }
 
-  TextStyle get labelStyle =>
-      const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF777777));
+  // ✅ 해시태그 추가 (최대 3개 / 각 10자 제한)
+  void _addHashtag() {
+    final raw = _hashtagCtrl.text.trim();
+    if (raw.isEmpty) return;
 
-  void _save() {
-    // ✅ 별점 필수 체크 (라벨 옆 빨간 글씨)
+    final cleaned = raw.startsWith('#') ? raw.substring(1).trim() : raw;
+    if (cleaned.isEmpty) return;
+
+    if (cleaned.length > 10) {
+      setState(() => _hashtagError = "글자수 초과(최대 10자)");
+      return;
+    }
+
+    if (selectedTags.length >= 3) {
+      setState(() => _hashtagError = "태그는 최대 3개까지 가능해요");
+      return;
+    }
+
+    if (selectedTags.contains(cleaned)) {
+      setState(() => _hashtagError = "이미 추가된 태그예요");
+      return;
+    }
+
+    setState(() {
+      selectedTags.add(cleaned);
+      _hashtagCtrl.clear();
+      _hashtagError = null;
+    });
+  }
+
+  // ✅ 선택된 태그를 칩으로 보여주고, 탭하면 제거
+  Widget _selectedTagChips() {
+    if (selectedTags.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: selectedTags.map((t) {
+        return InkWell(
+          onTap: () => setState(() => selectedTags.remove(t)),
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFE2F0),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFFFF8FBF)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  t.startsWith('#') ? t : '#$t',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    color: Color(0xFFFF4F9A),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.close, size: 14, color: Color(0xFFFF4F9A)),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ✅ 갤러리에서 사진 선택 → 앱 폴더로 복사 저장 → photoPaths에 추가
+  Future<void> _pickPhotos() async {
+    final images = await _picker.pickMultiImage(imageQuality: 85);
+    if (images.isEmpty) return;
+
+    final dir = await getApplicationDocumentsDirectory();
+    final savedDir = Directory(p.join(dir.path, 'record_photos'));
+    if (!await savedDir.exists()) {
+      await savedDir.create(recursive: true);
+    }
+
+    final List<String> newPaths = [];
+    for (final x in images) {
+      final ext = p.extension(x.path);
+      final fileName = 'photo_${DateTime.now().microsecondsSinceEpoch}$ext';
+      final newPath = p.join(savedDir.path, fileName);
+      await File(x.path).copy(newPath);
+      newPaths.add(newPath);
+    }
+
+    setState(() => photoPaths.addAll(newPaths));
+  }
+
+
+  Future<void> _save() async {
+    // 별점 필수 체크
     if (rating <= 0) {
       setState(() => showRatingError = true);
       return;
     }
 
+    final appState = Provider.of<AppState>(context, listen: false);
+    final defaultUserId = UserInitializationService.getDefaultUserId();
+    final isEdit = widget.initialRecord != null;
+
+    // 다중 사진 지원 스키마로 수정됨을 가정하여 photoPaths 리스트 전달
     final record = Record(
-      id: RecordStore.nextId(),
-      userId: 1,
+      id: isEdit ? widget.initialRecord!.id : 0, 
+      userId: defaultUserId,
       movie: widget.movie,
       rating: rating,
       watchDate: watchDate,
-      oneLiner: oneLinerController.text.trim(),
-      detailedReview: detailedController.text.trim(),
+      oneLiner: oneLinerController.text.trim().isEmpty ? null : oneLinerController.text.trim(),
+      detailedReview: detailedController.text.trim().isEmpty ? null : detailedController.text.trim(),
       tags: selectedTags.toList(),
-      photoUrl: null,
+      photoPaths: photoPaths.toList(), // ✅ 다중 사진 지원 필드 사용
     );
 
-    RecordStore.add(record);
-    Navigator.pop(context);
+    try {
+      if (isEdit) {
+        // ✅ AppState의 SQLite 수정 메서드 호출
+        await appState.updateRecord(record);
+      } else {
+        // ✅ AppState의 SQLite 추가 메서드 호출
+        await appState.addRecord(record);
+      }
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isEdit ? '기록이 수정되었습니다.' : '기록이 저장되었습니다.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장 실패: $e')),
+        );
+      }
+    }
   }
+
+
+
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isEdit = widget.initialRecord != null;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -119,10 +281,10 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        "기록 추가",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        isEdit ? "기록 수정" : "기록 추가",
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                       ),
                     ),
                     IconButton(
@@ -158,7 +320,7 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                                 width: 52,
                                 height: 70,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => Container(
+                                errorBuilder: (_, __, ___) => Container(
                                   width: 52,
                                   height: 70,
                                   color: Colors.black12,
@@ -169,28 +331,14 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.movie.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      color: textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    genreYearText,
-                                    style: TextStyle(
-                                      color: textSecondary,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                widget.movie.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: textPrimary,
+                                ),
                               ),
                             ),
                           ],
@@ -250,12 +398,11 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                       ),
                       const SizedBox(height: 10),
 
-                      // ✅ 2) 별점 (별 5개 + 0.5 단위)
                       _StarRatingFiveHalf(
                         value: rating,
                         onChanged: (v) => setState(() {
                           rating = v;
-                          if (showRatingError) showRatingError = false; // ✅ 별점 누르면 에러 해제
+                          if (showRatingError) showRatingError = false;
                         }),
                       ),
                       const SizedBox(height: 6),
@@ -267,23 +414,21 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                       const SizedBox(height: 16),
 
                       // ✅ 3) 태그
-                      Text("태그", style: labelStyle),
+                      Text("태그 (최대 3개)", style: labelStyle),
                       const SizedBox(height: 10),
+
+                      // ✅ 선택된 태그(고정+입력) 표시 (눌러서 삭제 가능)
+                      _selectedTagChips(),
+                      if (selectedTags.isNotEmpty) const SizedBox(height: 12),
+
+                      // ✅ 고정 태그 선택
                       Wrap(
                         spacing: 10,
                         runSpacing: 10,
                         children: tags.map((t) {
                           final on = selectedTags.contains(t);
                           return InkWell(
-                            onTap: () {
-                              setState(() {
-                                if (on) {
-                                  selectedTags.remove(t);
-                                } else {
-                                  selectedTags.add(t);
-                                }
-                              });
-                            },
+                            onTap: () => _toggleFixedTag(t),
                             borderRadius: BorderRadius.circular(999),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -307,9 +452,61 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                         }).toList(),
                       ),
 
+                      const SizedBox(height: 12),
+
+                      // ✅ 해시태그 입력 + 추가 버튼 (최대 10자)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _RoundedField(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              child: TextField(
+                                controller: _hashtagCtrl,
+                                maxLines: 1,
+                                inputFormatters: [LengthLimitingTextInputFormatter(10)],
+                                style: const TextStyle(fontSize: 13),
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                  hintText: "#해시태그 입력 (최대 10자)",
+                                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                onChanged: (_) {
+                                  if (_hashtagError != null) setState(() => _hashtagError = null);
+                                },
+                                onSubmitted: (_) => _addHashtag(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: _addHashtag,
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: primaryColor,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                            ),
+                            child: const Text("추가", style: TextStyle(fontWeight: FontWeight.w900)),
+                          ),
+                        ],
+                      ),
+
+                      if (_hashtagError != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          _hashtagError!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 16),
 
-                      // ✅ 4) 한줄평 (한줄만 + 20자 제한)
+                      // ✅ 4) 한줄평 (20자 제한)
                       Text("한줄평", style: labelStyle),
                       const SizedBox(height: 8),
                       _RoundedField(
@@ -335,13 +532,50 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                       // ✅ 5) 사진
                       Text("사진 (선택)", style: labelStyle),
                       const SizedBox(height: 8),
-                      _UploadBox(
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("사진 업로드는 나중에 연결하면 돼!")),
-                          );
-                        },
-                      ),
+                      _UploadBox(onTap: _pickPhotos),
+
+                      const SizedBox(height: 10),
+
+                      if (photoPaths.isNotEmpty)
+                        SizedBox(
+                          height: 92,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: photoPaths.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 10),
+                            itemBuilder: (_, i) {
+                              final path = photoPaths[i];
+                              return Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.file(
+                                      File(path),
+                                      width: 92,
+                                      height: 92,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    right: 4,
+                                    top: 4,
+                                    child: InkWell(
+                                      onTap: () => setState(() => photoPaths.removeAt(i)),
+                                      child: Container(
+                                        decoration: const BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Color(0x99000000),
+                                        ),
+                                        padding: const EdgeInsets.all(4),
+                                        child: const Icon(Icons.close, size: 16, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
 
                       const SizedBox(height: 16),
 
@@ -394,7 +628,10 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                           elevation: 0,
                           backgroundColor: primaryColor,
                         ),
-                        child: const Text("저장", style: TextStyle(fontWeight: FontWeight.w900)),
+                        child: Text(
+                          isEdit ? "수정 완료" : "저장",
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
                       ),
                     ),
                   ],

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/colors.dart';
-import '../data/record_store.dart';
 import '../models/record.dart';
+import '../state/app_state.dart';
+
+// ✅ 새로 추가한 기록 팝업용 모델/위젯
+import '../widgets/movie_diary_popup.dart';
 
 enum RecordSort { latest, rating, mostWatched }
 
@@ -46,6 +50,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
     _searchController.dispose();
     super.dispose();
   }
+
+
 
   String _formatDate(DateTime d) {
     final mm = d.month.toString().padLeft(2, '0');
@@ -236,7 +242,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
           return b.watchDate.compareTo(a.watchDate);
 
         case RecordSort.mostWatched:
-          // 여기서는 안 씀(많이 본 순은 그룹 뷰)
           return b.watchDate.compareTo(a.watchDate);
       }
     });
@@ -305,9 +310,9 @@ class _DiaryScreenState extends State<DiaryScreen> {
         ),
       ),
       body: SafeArea(
-        child: ValueListenableBuilder<List<Record>>(
-          valueListenable: RecordStore.records,
-          builder: (context, records, _) {
+        child: Consumer<AppState>(
+          builder: (context, appState, _) {
+            final records = appState.records;
             final earliestIdMap = _earliestRecordIdByMovie(records);
 
             final filtered = records.where((r) => _matchesQuery(r) && _matchesRange(r)).toList();
@@ -328,7 +333,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ✅ 탐색 탭 스타일: 큰 타이틀 + 작은 부제
                       Text(
                         "기록",
                         style: TextStyle(
@@ -428,7 +432,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                             childAspectRatio: 0.74,
                           ),
                           itemBuilder: (context, index) {
-                            // ✅ 많이 본 순: 영화 묶음 카드(평균별점 + N회 관람)
+                            // ✅ 많이 본 순: 영화 묶음 카드
                             if (isMostWatchedView) {
                               final it = shownMovies[index];
                               return _DiaryGridCardMostWatched(
@@ -436,10 +440,21 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                 posterUrl: it.posterUrl,
                                 rating: it.avgRating,
                                 watchCount: it.watchCount,
+                                onTap: () {
+                                  // ✅ 해당 movieId의 "최신 기록"으로 팝업 띄우기
+                                  final candidates =
+                                      filtered.where((r) => r.movie.id == it.movieId).toList();
+                                  if (candidates.isEmpty) return;
+
+                                  candidates.sort((a, b) => b.watchDate.compareTo(a.watchDate));
+                                  final latestRecord = candidates.first;
+                                  
+                                  openDiaryPopup(context, latestRecord);
+                                },
                               );
                             }
 
-                            // ✅ 최신/평점 순: record 카드(한줄평 + 날짜 + 재관람 리본)
+                            // ✅ 최신/평점 순: record 카드
                             final r = shownRecords[index];
                             final isRewatch = _isAutoRewatch(r, earliestIdMap);
 
@@ -450,6 +465,9 @@ class _DiaryScreenState extends State<DiaryScreen> {
                               oneLiner: r.oneLiner ?? '',
                               dateText: _formatDate(r.watchDate),
                               isRewatch: isRewatch,
+                              onTap: () {
+                                openDiaryPopup(context, r);
+                              },
                             );
                           },
                         ),
@@ -522,6 +540,7 @@ class _DiaryGridCardRecord extends StatelessWidget {
   final String oneLiner;
   final String dateText;
   final bool isRewatch;
+  final VoidCallback onTap;
 
   const _DiaryGridCardRecord({
     required this.title,
@@ -530,106 +549,111 @@ class _DiaryGridCardRecord extends StatelessWidget {
     required this.oneLiner,
     required this.dateText,
     required this.isRewatch,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     const radius = 8.0;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: const Color(0xFFEDEDED)),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _StarsDisplay(value: rating),
-                  const SizedBox(height: 4),
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: textPrimary,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(radius),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: const Color(0xFFEDEDED)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _StarsDisplay(value: rating),
+                    const SizedBox(height: 4),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.network(
-                        posterUrl,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          color: Colors.black12,
-                          alignment: Alignment.center,
-                          child: const Icon(Icons.broken_image_outlined),
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.network(
+                          posterUrl,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Colors.black12,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      oneLiner.isEmpty ? '(한줄평 없음)' : oneLiner,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      dateText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ✅ 재관람 빨간 리본
+              if (isRewatch)
+                Positioned(
+                  left: -26,
+                  top: 10,
+                  child: Transform.rotate(
+                    angle: -0.785398,
+                    child: Container(
+                      width: 90,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      color: Colors.red,
+                      alignment: Alignment.center,
+                      child: const Text(
+                        '재관람',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    oneLiner.isEmpty ? '(한줄평 없음)' : oneLiner,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: textPrimary,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    dateText,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: textSecondary,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ✅ 재관람 빨간 리본
-            if (isRewatch)
-              Positioned(
-                left: -26,
-                top: 10,
-                child: Transform.rotate(
-                  angle: -0.785398,
-                  child: Container(
-                    width: 90,
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    color: Colors.red,
-                    alignment: Alignment.center,
-                    child: const Text(
-                      '재관람',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -642,71 +666,77 @@ class _DiaryGridCardMostWatched extends StatelessWidget {
   final String posterUrl;
   final double rating;
   final int watchCount;
+  final VoidCallback onTap;
 
   const _DiaryGridCardMostWatched({
     required this.title,
     required this.posterUrl,
     required this.rating,
     required this.watchCount,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     const radius = 8.0;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: const Color(0xFFEDEDED)),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _StarsDisplay(value: rating),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(radius),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: const Color(0xFFEDEDED)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _StarsDisplay(value: rating),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Image.network(
-                    posterUrl,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      color: Colors.black12,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.broken_image_outlined),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.network(
+                      posterUrl,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.black12,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.broken_image_outlined),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "$watchCount회 관람", 
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: textSecondary,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
+                const SizedBox(height: 8),
+                Text(
+                  "$watchCount회 관람",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: textSecondary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
