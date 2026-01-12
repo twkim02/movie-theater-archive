@@ -5,6 +5,14 @@ import '../models/movie.dart';
 import '../models/record.dart';
 import '../models/stored_record.dart';
 
+/// @deprecated 이 클래스는 더 이상 사용되지 않습니다.
+/// DB 마이그레이션으로 인해 AppState와 RecordRepository를 사용하세요.
+/// 
+/// 대체 방법:
+/// - `AppState.addRecord(Record)` - 기록 추가
+/// - `AppState.records` - 기록 목록 조회
+/// - `RecordRepository` - 직접 DB 접근이 필요한 경우
+@Deprecated('Use AppState and RecordRepository instead')
 class RecordStore {
   static const String _boxName = 'recordsBox';
   static late Box<StoredRecord> _box;

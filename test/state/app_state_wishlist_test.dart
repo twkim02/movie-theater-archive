@@ -1,106 +1,131 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:movie_diary_app/state/app_state.dart';
 import 'package:movie_diary_app/models/movie.dart';
+import 'package:movie_diary_app/database/movie_database.dart';
+import 'package:movie_diary_app/repositories/movie_repository.dart';
+import 'package:movie_diary_app/services/user_initialization_service.dart';
 
 void main() {
+  // 테스트용 SQLite 초기화
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
   group('AppState 위시리스트(Wishlist) 기능 테스트', () {
     late AppState appState;
+    late Movie testMovie1;
+    late Movie testMovie2;
+    late Movie testMovie3;
 
-    setUp(() {
-      // 각 테스트 전에 새로운 AppState 인스턴스 생성
+    setUp(() async {
+      // 각 테스트 전에 DB 초기화
+      await MovieDatabase.close();
+      
+      // 새로운 AppState 인스턴스 생성
       appState = AppState();
-    });
-
-    test('초기 상태에서 위시리스트 리스트가 비어있지 않아야 함', () {
-      // Then: 더미 데이터가 로드되어 있어야 함
-      expect(appState.wishlist.isEmpty, false);
-      expect(appState.wishlist.length, greaterThanOrEqualTo(2)); // 더미데이터에 최소 2개
-    });
-
-    test('더미 위시리스트가 올바르게 로드되는지 확인', () {
-      // When: 더미 위시리스트 조회
-      final dummyWishlist = appState.dummyWishlist;
-
-      // Then: 2개의 더미 위시리스트 아이템이 있어야 함
-      expect(dummyWishlist.length, 2);
-    });
-
-    test('위시리스트에 영화 추가', () {
-      // Given: 영화 객체
-      final movie = Movie(
-        id: "999999",
-        title: "테스트 영화",
-        posterUrl: "https://test.jpg",
+      
+      // 기본 사용자 및 태그 초기화
+      await UserInitializationService.initializeAll();
+      
+      // 테스트 영화 생성 및 DB에 저장
+      testMovie1 = Movie(
+        id: "test_wishlist_1",
+        title: "테스트 영화 1",
+        posterUrl: "https://test1.jpg",
         genres: ["액션"],
         releaseDate: DateTime.now().toIso8601String().split('T')[0],
         runtime: 120,
         voteAverage: 4.0,
         isRecent: false,
       );
-
-      // When: 위시리스트에 추가
-      final beforeCount = appState.wishlistCount;
-      appState.addToWishlist(movie);
-
-      // Then: 위시리스트 개수가 증가해야 함
-      expect(appState.wishlistCount, beforeCount + 1);
-      expect(appState.isInWishlist(movie.id), true);
-    });
-
-    test('이미 위시리스트에 있는 영화를 추가하면 중복되지 않음', () {
-      // Given: 더미 위시리스트에 있는 영화 ID
-      final existingMovie = appState.wishlist.first.movie;
-
-      // When: 같은 영화를 다시 추가 시도
-      final beforeCount = appState.wishlistCount;
-      appState.addToWishlist(existingMovie);
-
-      // Then: 개수가 증가하지 않아야 함
-      expect(appState.wishlistCount, beforeCount);
-    });
-
-    test('위시리스트에서 영화 제거', () {
-      // Given: 위시리스트에 추가된 영화
-      final movie = Movie(
-        id: "888888",
-        title: "제거 테스트 영화",
-        posterUrl: "https://test.jpg",
-        genres: ["드라마"],
+      testMovie2 = Movie(
+        id: "test_wishlist_2",
+        title: "테스트 영화 2",
+        posterUrl: "https://test2.jpg",
+        genres: ["드라마", "SF"],
         releaseDate: DateTime.now().toIso8601String().split('T')[0],
         runtime: 100,
         voteAverage: 3.5,
         isRecent: false,
       );
-      appState.addToWishlist(movie);
-      expect(appState.isInWishlist(movie.id), true);
+      testMovie3 = Movie(
+        id: "test_wishlist_3",
+        title: "A 영화",
+        posterUrl: "https://test3.jpg",
+        genres: ["코미디"],
+        releaseDate: DateTime.now().toIso8601String().split('T')[0],
+        runtime: 90,
+        voteAverage: 4.5,
+        isRecent: false,
+      );
+      
+      // 영화를 DB에 저장
+      await MovieRepository.addMovie(testMovie1);
+      await MovieRepository.addMovie(testMovie2);
+      await MovieRepository.addMovie(testMovie3);
+      
+      // 위시리스트 로드
+      await appState.loadWishlistFromDatabase();
+    });
+
+    tearDown(() async {
+      // 각 테스트 후 DB 정리
+      await MovieDatabase.close();
+    });
+
+    test('초기 상태에서 위시리스트 리스트가 비어있어야 함', () async {
+      // When: 위시리스트 로드
+      await appState.loadWishlistFromDatabase();
+      
+      // Then: 초기에는 비어있어야 함 (DB에 아무것도 없음)
+      expect(appState.wishlist.isEmpty, true);
+      expect(appState.wishlistCount, 0);
+    });
+
+    test('위시리스트에 영화 추가', () async {
+      // Given: 영화 객체 (이미 DB에 저장됨)
+      
+      // When: 위시리스트에 추가
+      final beforeCount = appState.wishlistCount;
+      await appState.addToWishlist(testMovie1);
+      
+      // Then: 위시리스트 개수가 증가해야 함
+      expect(appState.wishlistCount, beforeCount + 1);
+      expect(await appState.isBookmarkedAsync(testMovie1.id), true);
+    });
+
+    test('이미 위시리스트에 있는 영화를 추가하면 중복되지 않음', () async {
+      // Given: 위시리스트에 추가된 영화
+      await appState.addToWishlist(testMovie1);
+      final beforeCount = appState.wishlistCount;
+
+      // When: 같은 영화를 다시 추가 시도
+      await appState.addToWishlist(testMovie1);
+
+      // Then: 개수가 증가하지 않아야 함
+      expect(appState.wishlistCount, beforeCount);
+    });
+
+    test('위시리스트에서 영화 제거', () async {
+      // Given: 위시리스트에 추가된 영화
+      await appState.addToWishlist(testMovie2);
+      expect(await appState.isBookmarkedAsync(testMovie2.id), true);
 
       // When: 위시리스트에서 제거
       final beforeCount = appState.wishlistCount;
-      appState.removeFromWishlist(movie.id);
+      await appState.removeFromWishlist(testMovie2.id);
 
       // Then: 제거되어야 함
       expect(appState.wishlistCount, beforeCount - 1);
-      expect(appState.isInWishlist(movie.id), false);
+      expect(await appState.isBookmarkedAsync(testMovie2.id), false);
     });
 
-    test('더미데이터는 제거되지 않음', () {
-      // Given: 더미 위시리스트에 있는 영화 ID
-      final dummyItem = appState.dummyWishlist.first;
-      final dummyMovieId = dummyItem.movie.id;
-
-      // When: 더미 영화를 제거 시도
-      final beforeCount = appState.wishlistCount;
-      appState.removeFromWishlist(dummyMovieId);
-
-      // Then: 더미데이터는 제거되지 않아야 함 (개수가 그대로여야 함)
-      expect(appState.wishlistCount, beforeCount);
-      expect(appState.isInWishlist(dummyMovieId), true);
-    });
-
-    test('특정 영화 ID로 위시리스트 아이템 찾기', () {
-      // Given: 더미데이터에 있는 영화 ID
-      final existingItem = appState.wishlist.first;
-      final movieId = existingItem.movie.id;
+    test('특정 영화 ID로 위시리스트 아이템 찾기', () async {
+      // Given: 위시리스트에 추가된 영화
+      await appState.addToWishlist(testMovie1);
+      final movieId = testMovie1.id;
 
       // When: 위시리스트 아이템 찾기
       final foundItem = appState.getWishlistItemByMovieId(movieId);
@@ -108,7 +133,7 @@ void main() {
       // Then: 올바른 아이템이 반환되어야 함
       expect(foundItem, isNotNull);
       expect(foundItem!.movie.id, movieId);
-      expect(foundItem.movie.title, existingItem.movie.title);
+      expect(foundItem.movie.title, testMovie1.title);
     });
 
     test('존재하지 않는 영화 ID로 찾기 시 null 반환', () {
@@ -122,7 +147,11 @@ void main() {
       expect(foundItem, isNull);
     });
 
-    test('위시리스트 영화 목록만 반환', () {
+    test('위시리스트 영화 목록만 반환', () async {
+      // Given: 위시리스트에 영화 추가
+      await appState.addToWishlist(testMovie1);
+      await appState.addToWishlist(testMovie2);
+      
       // When: 위시리스트 영화 목록 조회
       final wishlistMovies = appState.wishlistMovies;
 
@@ -138,7 +167,12 @@ void main() {
       }
     });
 
-    test('날짜 순 정렬 (최신순)', () {
+    test('날짜 순 정렬 (최신순)', () async {
+      // Given: 여러 영화 추가
+      await appState.addToWishlist(testMovie1);
+      await Future.delayed(const Duration(milliseconds: 10)); // 시간 차이를 위해
+      await appState.addToWishlist(testMovie2);
+      
       // When: 최신순으로 정렬
       final sorted = appState.getSortedWishlistByDate(ascending: false);
 
@@ -153,7 +187,12 @@ void main() {
       }
     });
 
-    test('날짜 순 정렬 (오래된 순)', () {
+    test('날짜 순 정렬 (오래된 순)', () async {
+      // Given: 여러 영화 추가
+      await appState.addToWishlist(testMovie1);
+      await Future.delayed(const Duration(milliseconds: 10)); // 시간 차이를 위해
+      await appState.addToWishlist(testMovie2);
+      
       // When: 오래된 순으로 정렬
       final sorted = appState.getSortedWishlistByDate(ascending: true);
 
@@ -168,7 +207,12 @@ void main() {
       }
     });
 
-    test('제목 순 정렬 (가나다 순)', () {
+    test('제목 순 정렬 (가나다 순)', () async {
+      // Given: 여러 영화 추가
+      await appState.addToWishlist(testMovie1);
+      await appState.addToWishlist(testMovie2);
+      await appState.addToWishlist(testMovie3);
+      
       // When: 제목 순으로 정렬 (오름차순)
       final sorted = appState.getSortedWishlistByTitle(ascending: true);
 
@@ -182,7 +226,12 @@ void main() {
       }
     });
 
-    test('제목 순 정렬 (역순)', () {
+    test('제목 순 정렬 (역순)', () async {
+      // Given: 여러 영화 추가
+      await appState.addToWishlist(testMovie1);
+      await appState.addToWishlist(testMovie2);
+      await appState.addToWishlist(testMovie3);
+      
       // When: 제목 역순으로 정렬 (내림차순)
       final sorted = appState.getSortedWishlistByTitle(ascending: false);
 
@@ -196,7 +245,12 @@ void main() {
       }
     });
 
-    test('평점 순 정렬 (높은 평점 순)', () {
+    test('평점 순 정렬 (높은 평점 순)', () async {
+      // Given: 여러 영화 추가
+      await appState.addToWishlist(testMovie1);
+      await appState.addToWishlist(testMovie2);
+      await appState.addToWishlist(testMovie3);
+      
       // When: 높은 평점 순으로 정렬
       final sorted = appState.getSortedWishlistByRating(ascending: false);
 
@@ -210,7 +264,12 @@ void main() {
       }
     });
 
-    test('평점 순 정렬 (낮은 평점 순)', () {
+    test('평점 순 정렬 (낮은 평점 순)', () async {
+      // Given: 여러 영화 추가
+      await appState.addToWishlist(testMovie1);
+      await appState.addToWishlist(testMovie2);
+      await appState.addToWishlist(testMovie3);
+      
       // When: 낮은 평점 순으로 정렬
       final sorted = appState.getSortedWishlistByRating(ascending: true);
 
@@ -224,11 +283,14 @@ void main() {
       }
     });
 
-    test('장르로 필터링', () {
-      // Given: 특정 장르 (더미데이터에 있는 장르)
+    test('장르로 필터링', () async {
+      // Given: 여러 영화 추가
+      await appState.addToWishlist(testMovie1); // 액션
+      await appState.addToWishlist(testMovie2); // 드라마, SF
+      await appState.addToWishlist(testMovie3); // 코미디
+      
+      // When: SF 장르로 필터링
       const genre = "SF";
-
-      // When: 해당 장르로 필터링
       final filtered = appState.getWishlistByGenre(genre);
 
       // Then: 해당 장르를 포함하는 영화만 반환되어야 함
@@ -238,7 +300,10 @@ void main() {
       }
     });
 
-    test('존재하지 않는 장르로 필터링 시 빈 리스트 반환', () {
+    test('존재하지 않는 장르로 필터링 시 빈 리스트 반환', () async {
+      // Given: 위시리스트에 영화 추가
+      await appState.addToWishlist(testMovie1);
+      
       // Given: 존재하지 않는 장르
       const genre = "존재하지않는장르";
 
@@ -249,40 +314,25 @@ void main() {
       expect(filtered, isEmpty);
     });
 
-    test('위시리스트에 여러 영화 추가 후 정렬 확인', () {
+    test('위시리스트에 여러 영화 추가 후 정렬 확인', () async {
       // Given: 여러 영화 추가
-      final movie1 = Movie(
-        id: "111111",
-        title: "A 영화",
-        posterUrl: "https://test1.jpg",
-        genres: ["액션"],
-        releaseDate: DateTime.now().toIso8601String().split('T')[0],
-        runtime: 100,
-        voteAverage: 4.5,
-        isRecent: false,
-      );
-      final movie2 = Movie(
-        id: "222222",
-        title: "B 영화",
-        posterUrl: "https://test2.jpg",
-        genres: ["드라마"],
-        releaseDate: DateTime.now().toIso8601String().split('T')[0],
-        runtime: 120,
-        voteAverage: 3.5,
-        isRecent: false,
-      );
-
-      appState.addToWishlist(movie1);
-      appState.addToWishlist(movie2);
+      await appState.addToWishlist(testMovie1);
+      await appState.addToWishlist(testMovie2);
+      await appState.addToWishlist(testMovie3);
 
       // When: 제목 순으로 정렬
       final sorted = appState.getSortedWishlistByTitle(ascending: true);
 
       // Then: 정렬이 올바르게 작동해야 함
-      expect(sorted.length, greaterThanOrEqualTo(2));
+      expect(sorted.length, greaterThanOrEqualTo(3));
     });
 
-    test('위시리스트 기본 정렬이 최신순인지 확인', () {
+    test('위시리스트 기본 정렬이 최신순인지 확인', () async {
+      // Given: 여러 영화 추가
+      await appState.addToWishlist(testMovie1);
+      await Future.delayed(const Duration(milliseconds: 10));
+      await appState.addToWishlist(testMovie2);
+      
       // When: 기본 위시리스트 조회
       final wishlist = appState.wishlist;
 
@@ -297,33 +347,40 @@ void main() {
       }
     });
 
-    test('위시리스트 통합 테스트 (추가 → 확인 → 제거)', () {
-      // Given: 테스트 영화
-      final movie = Movie(
-        id: "TEST123",
-        title: "통합 테스트 영화",
-        posterUrl: "https://test.jpg",
-        genres: ["코미디"],
-        releaseDate: DateTime.now().toIso8601String().split('T')[0],
-        runtime: 90,
-        voteAverage: 4.0,
-        isRecent: false,
-      );
+    test('위시리스트 통합 테스트 (추가 → 확인 → 제거)', () async {
+      // Given: 테스트 영화 (이미 DB에 저장됨)
 
       // When: 위시리스트에 추가
-      appState.addToWishlist(movie);
+      await appState.addToWishlist(testMovie1);
 
       // Then: 추가 확인
-      expect(appState.isInWishlist(movie.id), true);
-      expect(appState.getWishlistItemByMovieId(movie.id), isNotNull);
-      expect(appState.wishlistMovies.any((m) => m.id == movie.id), true);
+      expect(await appState.isBookmarkedAsync(testMovie1.id), true);
+      expect(appState.getWishlistItemByMovieId(testMovie1.id), isNotNull);
+      expect(appState.wishlistMovies.any((m) => m.id == testMovie1.id), true);
 
       // When: 위시리스트에서 제거
-      appState.removeFromWishlist(movie.id);
+      await appState.removeFromWishlist(testMovie1.id);
 
       // Then: 제거 확인
-      expect(appState.isInWishlist(movie.id), false);
-      expect(appState.getWishlistItemByMovieId(movie.id), isNull);
+      expect(await appState.isBookmarkedAsync(testMovie1.id), false);
+      expect(appState.getWishlistItemByMovieId(testMovie1.id), isNull);
+    });
+
+    test('북마크 토글 기능', () async {
+      // Given: 영화 ID
+      final movieId = testMovie1.id;
+
+      // When: 북마크 토글 (추가)
+      await appState.toggleBookmark(movieId);
+
+      // Then: 북마크됨
+      expect(await appState.isBookmarkedAsync(movieId), true);
+
+      // When: 다시 토글 (제거)
+      await appState.toggleBookmark(movieId);
+
+      // Then: 북마크 해제됨
+      expect(await appState.isBookmarkedAsync(movieId), false);
     });
   });
 }

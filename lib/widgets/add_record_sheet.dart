@@ -1,15 +1,16 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../data/record_store.dart';
 import '../models/movie.dart';
-import '../models/record.dart';
 import '../theme/colors.dart';
+import '../models/record.dart';
+import '../state/app_state.dart';
+import '../services/user_initialization_service.dart';
 
 void openAddRecordSheet(BuildContext context, Movie movie, {Record? initialRecord}) {
   showModalBottomSheet(
@@ -207,41 +208,52 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
   }
 
 
-  void _save() async {
+  Future<void> _save() async {
+    // 별점 필수 체크
     if (rating <= 0) {
       setState(() => showRatingError = true);
       return;
     }
 
+    final appState = Provider.of<AppState>(context, listen: false);
+    final defaultUserId = UserInitializationService.getDefaultUserId();
     final isEdit = widget.initialRecord != null;
 
-    if (isEdit) {
-      final updated = widget.initialRecord!.copyWith(
-        rating: rating,
-        watchDate: watchDate,
-        oneLiner: oneLinerController.text.trim(),
-        detailedReview: detailedController.text.trim(),
-        tags: selectedTags.toList(),
-        photoPaths: photoPaths.toList(),
-      );
-      await RecordStore.update(updated); // ✅ await
-    } else {
-      final record = Record(
-        id: RecordStore.nextId(),
-        userId: 1,
-        movie: widget.movie,
-        rating: rating,
-        watchDate: watchDate,
-        oneLiner: oneLinerController.text.trim(),
-        detailedReview: detailedController.text.trim(),
-        tags: selectedTags.toList(),
-        photoPaths: photoPaths.toList(),
-      );
-      await RecordStore.add(record); // ✅ await
-    }
+    // 다중 사진 지원 스키마로 수정됨을 가정하여 photoPaths 리스트 전달
+    final record = Record(
+      id: isEdit ? widget.initialRecord!.id : 0, 
+      userId: defaultUserId,
+      movie: widget.movie,
+      rating: rating,
+      watchDate: watchDate,
+      oneLiner: oneLinerController.text.trim().isEmpty ? null : oneLinerController.text.trim(),
+      detailedReview: detailedController.text.trim().isEmpty ? null : detailedController.text.trim(),
+      tags: selectedTags.toList(),
+      photoPaths: photoPaths.toList(), // ✅ 다중 사진 지원 필드 사용
+    );
 
-    if (!mounted) return;
-    Navigator.pop(context);
+    try {
+      if (isEdit) {
+        // ✅ AppState의 SQLite 수정 메서드 호출
+        await appState.updateRecord(record);
+      } else {
+        // ✅ AppState의 SQLite 추가 메서드 호출
+        await appState.addRecord(record);
+      }
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isEdit ? '기록이 수정되었습니다.' : '기록이 저장되었습니다.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장 실패: $e')),
+        );
+      }
+    }
   }
 
 

@@ -2,6 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../models/wishlist.dart';
+import '../api/tmdb_client.dart';
+import '../api/tmdb_mapper.dart';
+import '../utils/env_loader.dart';
+import '../models/movie.dart';
+import '../repositories/movie_repository.dart';
+import '../services/movie_db_initializer.dart';
+import '../services/movie_initialization_service.dart';
+import '../services/movie_update_service.dart';
 
 /// 개발/테스트용 화면
 /// 작성한 코드가 제대로 작동하는지 시각적으로 확인할 수 있습니다.
@@ -21,7 +29,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
   }
 
   @override
@@ -47,6 +55,8 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
             Tab(icon: Icon(Icons.history), text: '기록'),
             Tab(icon: Icon(Icons.favorite), text: '위시리스트'),
             Tab(icon: Icon(Icons.bar_chart), text: '통계'),
+            Tab(icon: Icon(Icons.cloud), text: 'TMDb API'),
+            Tab(icon: Icon(Icons.storage), text: 'DB 테스트'),
           ],
         ),
       ),
@@ -58,6 +68,8 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           _buildRecordsTab(context, appState),
           _buildWishlistTab(context, appState),
           _buildStatisticsTab(context, appState),
+          _buildTmdbApiTab(context),
+          _buildDbTestTab(context, appState),
         ],
       ),
     );
@@ -222,14 +234,16 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                   Text('테스트 영화 (${firstMovie.title}) 북마크 상태: ${appState.isBookmarked(firstMovie.id) ? "북마크됨" : "북마크 안됨"}'),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
-                    onPressed: () {
-                      appState.toggleBookmark(firstMovie.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('북마크 토글 완료! (화면이 자동 업데이트됨)'),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
+                    onPressed: () async {
+                      await appState.toggleBookmark(firstMovie.id);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('북마크 토글 완료! (화면이 자동 업데이트됨)'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      }
                     },
                     icon: Icon(appState.isBookmarked(firstMovie.id) ? Icons.bookmark : Icons.bookmark_border),
                     label: Text(appState.isBookmarked(firstMovie.id) ? '북마크 해제' : '북마크 추가'),
@@ -433,7 +447,9 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   // ========== 위시리스트 탭 ==========
   Widget _buildWishlistTab(BuildContext context, AppState appState) {
     final wishlist = appState.wishlist;
-    final availableMovies = appState.movies.where((m) => !appState.isInWishlist(m.id)).toList();
+    // 위시리스트에 없는 영화 필터링 (동기적으로 처리)
+    final bookmarkedIds = appState.bookmarkedMovieIds;
+    final availableMovies = appState.movies.where((m) => !bookmarkedIds.contains(m.id)).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -456,8 +472,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                   ),
                   const SizedBox(height: 12),
                   _buildStatItem('전체 위시리스트', '${appState.wishlistCount}개'),
-                  _buildStatItem('더미 데이터', '${appState.dummyWishlist.length}개'),
-                  _buildStatItem('추가된 아이템', '${wishlist.length - appState.dummyWishlist.length}개'),
+                  _buildStatItem('로드 상태', appState.isWishlistLoaded ? '로드 완료' : '로딩 중'),
                 ],
               ),
             ),
@@ -494,11 +509,24 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                           return Padding(
                             padding: const EdgeInsets.only(right: 8.0),
                             child: ElevatedButton(
-                              onPressed: () {
-                                appState.addToWishlist(movie);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('${movie.title}을(를) 위시리스트에 추가했습니다.')),
-                                );
+                              onPressed: () async {
+                                try {
+                                  await appState.addToWishlist(movie);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('${movie.title}을(를) 위시리스트에 추가했습니다.')),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('추가 실패: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
                               },
                               child: Text(movie.title, textAlign: TextAlign.center),
                             ),
@@ -596,16 +624,28 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                               ],
                             ),
                           ),
-                          if (!appState.dummyWishlist.contains(item))
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () {
-                                appState.removeFromWishlist(item.movie.id);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('${item.movie.title}을(를) 위시리스트에서 제거했습니다.')),
-                                );
-                              },
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () async {
+                              try {
+                                await appState.removeFromWishlist(item.movie.id);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('${item.movie.title}을(를) 위시리스트에서 제거했습니다.')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('제거 실패: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
                         ],
                       ),
                     )),
@@ -804,6 +844,885 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ========== TMDb API 테스트 탭 ==========
+  Widget _buildTmdbApiTab(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // API 키 확인
+          Card(
+            color: Colors.orange.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '🔑 API 키 확인',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (context) {
+                      final apiKey = EnvLoader.tmdbApiKey;
+                      if (apiKey == null || apiKey.isEmpty) {
+                        return const Text(
+                          '❌ API 키를 찾을 수 없습니다.\nenv.json 파일을 확인하세요.',
+                          style: TextStyle(color: Colors.red),
+                        );
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('✅ API 키 로드 성공'),
+                          const SizedBox(height: 4),
+                          Text(
+                            '키: ${apiKey.substring(0, 8)}...',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 현재 상영 중인 영화 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '1️⃣ 현재 상영 중인 영화',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await _testNowPlayingMovies(context);
+                    },
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('현재 상영 중인 영화 가져오기'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 인기 영화 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '2️⃣ 인기 영화',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await _testPopularMovies(context);
+                    },
+                    icon: const Icon(Icons.star),
+                    label: const Text('인기 영화 가져오기'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 영화 검색 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '3️⃣ 영화 검색',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: '검색어 입력',
+                      hintText: '예: 기생충, 아바타',
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (value) async {
+                      if (value.trim().isNotEmpty) {
+                        await _testSearchMovies(context, value.trim());
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await _testSearchMovies(context, '기생충');
+                    },
+                    icon: const Icon(Icons.search),
+                    label: const Text('예시: "기생충" 검색'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 장르 목록 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '4️⃣ 장르 목록',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await _testGenres(context);
+                    },
+                    icon: const Icon(Icons.category),
+                    label: const Text('장르 목록 가져오기'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // TMDb API 테스트 메서드들
+  Future<void> _testNowPlayingMovies(BuildContext context) async {
+    final apiKey = EnvLoader.tmdbApiKey;
+    if (apiKey == null || apiKey.isEmpty) {
+      _showError(context, 'API 키가 없습니다.');
+      return;
+    }
+
+    try {
+      _showLoading(context, '현재 상영 중인 영화를 가져오는 중...');
+      
+      final client = TmdbClient(apiKey: apiKey);
+      
+      // 장르 맵 먼저 로드
+      final genreMap = await client.getGenres();
+      TmdbMapper.setGenreMap(genreMap);
+      
+      // 현재 상영 중인 영화 가져오기
+      final response = await client.getNowPlayingMovies();
+      final movies = TmdbMapper.toMovieList(response.results, isRecent: true);
+      
+      Navigator.of(context).pop(); // 로딩 닫기
+      
+      _showMovieResults(
+        context,
+        '현재 상영 중인 영화',
+        movies,
+        '총 ${response.totalResults}개 영화 중 ${response.results.length}개 로드됨',
+      );
+    } catch (e) {
+      Navigator.of(context).pop(); // 로딩 닫기
+      _showError(context, '오류: $e');
+    }
+  }
+
+  Future<void> _testPopularMovies(BuildContext context) async {
+    final apiKey = EnvLoader.tmdbApiKey;
+    if (apiKey == null || apiKey.isEmpty) {
+      _showError(context, 'API 키가 없습니다.');
+      return;
+    }
+
+    try {
+      _showLoading(context, '인기 영화를 가져오는 중...');
+      
+      final client = TmdbClient(apiKey: apiKey);
+      
+      // 장르 맵 먼저 로드
+      final genreMap = await client.getGenres();
+      TmdbMapper.setGenreMap(genreMap);
+      
+      // 인기 영화 가져오기
+      final response = await client.getPopularMovies();
+      final movies = TmdbMapper.toMovieList(response.results, isRecent: false);
+      
+      Navigator.of(context).pop(); // 로딩 닫기
+      
+      _showMovieResults(
+        context,
+        '인기 영화',
+        movies,
+        '총 ${response.totalResults}개 영화 중 ${response.results.length}개 로드됨',
+      );
+    } catch (e) {
+      Navigator.of(context).pop(); // 로딩 닫기
+      _showError(context, '오류: $e');
+    }
+  }
+
+  Future<void> _testSearchMovies(BuildContext context, String query) async {
+    final apiKey = EnvLoader.tmdbApiKey;
+    if (apiKey == null || apiKey.isEmpty) {
+      _showError(context, 'API 키가 없습니다.');
+      return;
+    }
+
+    try {
+      _showLoading(context, '"$query" 검색 중...');
+      
+      final client = TmdbClient(apiKey: apiKey);
+      
+      // 장르 맵 먼저 로드
+      final genreMap = await client.getGenres();
+      TmdbMapper.setGenreMap(genreMap);
+      
+      // 영화 검색
+      final response = await client.searchMovies(query);
+      final movies = TmdbMapper.toMovieList(response.results);
+      
+      Navigator.of(context).pop(); // 로딩 닫기
+      
+      _showMovieResults(
+        context,
+        '검색 결과: "$query"',
+        movies,
+        '총 ${response.totalResults}개 결과 중 ${response.results.length}개 로드됨',
+      );
+    } catch (e) {
+      Navigator.of(context).pop(); // 로딩 닫기
+      _showError(context, '오류: $e');
+    }
+  }
+
+  Future<void> _testGenres(BuildContext context) async {
+    final apiKey = EnvLoader.tmdbApiKey;
+    if (apiKey == null || apiKey.isEmpty) {
+      _showError(context, 'API 키가 없습니다.');
+      return;
+    }
+
+    try {
+      _showLoading(context, '장르 목록을 가져오는 중...');
+      
+      final client = TmdbClient(apiKey: apiKey);
+      final genreMap = await client.getGenres();
+      TmdbMapper.setGenreMap(genreMap);
+      
+      Navigator.of(context).pop(); // 로딩 닫기
+      
+      _showGenreResults(context, genreMap);
+    } catch (e) {
+      Navigator.of(context).pop(); // 로딩 닫기
+      _showError(context, '오류: $e');
+    }
+  }
+
+  void _showLoading(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(message),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showMovieResults(
+    BuildContext context,
+    String title,
+    List<Movie> movies,
+    String summary,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                summary,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: movies.length > 10 ? 10 : movies.length,
+                  itemBuilder: (context, index) {
+                    final movie = movies[index];
+                    return ListTile(
+                      dense: true,
+                      leading: movie.posterUrl.isNotEmpty
+                          ? Image.network(
+                              movie.posterUrl,
+                              width: 50,
+                              height: 75,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.movie),
+                            )
+                          : const Icon(Icons.movie),
+                      title: Text(
+                        movie.title,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        '${movie.genres.join(", ")}\n평점: ${movie.voteAverage} | ${movie.releaseDate}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              if (movies.length > 10)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    '... 외 ${movies.length - 10}개 영화',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showGenreResults(BuildContext context, Map<int, String> genreMap) {
+    final sortedGenres = genreMap.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('장르 목록'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: sortedGenres.length,
+            itemBuilder: (context, index) {
+              final entry = sortedGenres[index];
+              return ListTile(
+                dense: true,
+                leading: Text(
+                  '${entry.key}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                title: Text(entry.value),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========== DB 테스트 탭 ==========
+  Widget _buildDbTestTab(BuildContext context, AppState appState) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // DB 상태 확인
+          Card(
+            color: Colors.blue.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '💾 DB 상태',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  FutureBuilder<int>(
+                    future: MovieRepository.getMovieCount(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Text('로딩 중...');
+                      }
+                      if (snapshot.hasError) {
+                        return Text('오류: ${snapshot.error}');
+                      }
+                      return Text('저장된 영화 수: ${snapshot.data ?? 0}개');
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 더미 데이터로 초기화
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '1️⃣ 더미 데이터로 DB 초기화',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text('더미 데이터를 DB에 저장합니다.'),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '더미 데이터 저장 중...');
+                      try {
+                        final count = await MovieDbInitializer.initializeWithDummyData();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        appState.refreshMovies(); // 영화 리스트 새로고침
+                        _showSuccess(context, '$count개의 영화가 저장되었습니다.');
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('더미 데이터 저장'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // TMDb API로 초기화
+          Card(
+            color: Colors.green.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '2️⃣ TMDb API로 영화 초기화',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'TMDb API를 통해 현재 상영 중인 영화와 인기 영화를 가져와 DB에 저장합니다.\n'
+                    '이미 DB에 있는 영화는 스킵됩니다.',
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, 'TMDb API에서 영화 가져오는 중...\n시간이 걸릴 수 있습니다.');
+                      try {
+                        final count = await MovieInitializationService.initializeMovies();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        await appState.refreshMovies(); // 영화 리스트 새로고침
+                        _showSuccess(context, 'TMDb API 초기화 완료!\n$count개의 영화가 저장되었습니다.');
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.cloud_download),
+                    label: const Text('TMDb API로 초기화'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // DB에서 영화 조회
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '3️⃣ DB에서 영화 조회',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '영화 조회 중...');
+                      try {
+                        final movies = await MovieRepository.getAllMovies();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showMovieResults(
+                          context,
+                          'DB에서 조회한 영화',
+                          movies,
+                          '총 ${movies.length}개 영화',
+                        );
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로기 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.search),
+                    label: const Text('전체 영화 조회'),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '최근 상영 영화 조회 중...');
+                      try {
+                        final movies = await MovieRepository.getRecentMovies();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showMovieResults(
+                          context,
+                          '최근 상영 중인 영화',
+                          movies,
+                          '총 ${movies.length}개 영화',
+                        );
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.movie),
+                    label: const Text('최근 상영 영화 조회'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // DB 새로고침
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '4️⃣ 영화 리스트 새로고침',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text('AppState의 영화 리스트를 DB에서 다시 로드합니다.'),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '새로고침 중...');
+                      try {
+                        await appState.refreshMovies();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showSuccess(context, '영화 리스트가 새로고침되었습니다.');
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('새로고침'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 러닝타임 업데이트
+          Card(
+            color: Colors.orange.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '5️⃣ 러닝타임 업데이트',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'DB에 저장된 영화 중 러닝타임이 0인 영화들의 상세 정보를 TMDb API에서 가져와서 업데이트합니다.\n'
+                    '시간이 걸릴 수 있습니다.',
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '러닝타임 업데이트 중...\n시간이 걸릴 수 있습니다.');
+                      try {
+                        final count = await MovieInitializationService.updateMovieRuntimes();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        await appState.refreshMovies(); // 영화 리스트 새로고침
+                        _showSuccess(context, '러닝타임 업데이트 완료!\n$count개의 영화가 업데이트되었습니다.');
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.update),
+                    label: const Text('러닝타임 업데이트'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 영화 갱신 (현재 상영 중인 영화 업데이트)
+          Card(
+            color: Colors.purple.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '7️⃣ 현재 상영 영화 갱신',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  FutureBuilder<String>(
+                    future: MovieUpdateService.getLastUpdateTimeFormatted(),
+                    builder: (context, snapshot) {
+                      final lastUpdate = snapshot.data ?? '로딩 중...';
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('마지막 갱신: $lastUpdate'),
+                          const SizedBox(height: 8),
+                          FutureBuilder<bool>(
+                            future: MovieUpdateService.shouldUpdate(),
+                            builder: (context, snapshot) {
+                              final shouldUpdate = snapshot.data ?? false;
+                              return Text(
+                                shouldUpdate
+                                    ? '⚠️ 24시간 경과 - 갱신 필요'
+                                    : '✅ 최근에 갱신됨',
+                                style: TextStyle(
+                                  color: shouldUpdate ? Colors.orange : Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '현재 상영 중인 영화 정보를 TMDb API에서 가져와서 업데이트합니다.\n'
+                    '스마트 업데이트: 새 영화만 추가하고, 더 이상 상영 중이 아닌 영화는 is_recent 플래그만 변경합니다.',
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '영화 갱신 중...\n시간이 걸릴 수 있습니다.');
+                      try {
+                        final count = await MovieUpdateService.updateNowPlayingMovies();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        await appState.refreshMovies(); // 영화 리스트 새로고침
+                        setState(() {}); // UI 새로고침 (마지막 갱신 시간 표시 업데이트)
+                        _showSuccess(context, '영화 갱신 완료!\n$count개의 새 영화가 추가되었습니다.');
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('영화 갱신 실행'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // DB 초기화 (모든 데이터 삭제)
+          Card(
+            color: Colors.red.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '⚠️ DB 초기화 (위험)',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '모든 영화 데이터를 삭제합니다. 더미 데이터는 추가하지 않습니다.',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('정말 삭제하시겠습니까?'),
+                          content: const Text('모든 영화 데이터가 삭제됩니다.\n더미 데이터는 추가되지 않습니다.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('취소'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text('삭제', style: TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmed == true) {
+                        _showLoading(context, 'DB 초기화 중...');
+                        try {
+                          await MovieDbInitializer.clearDatabase();
+                          await appState.refreshMovies();
+                          Navigator.of(context).pop(); // 로딩 닫기
+                          _showSuccess(context, '모든 영화 데이터가 삭제되었습니다.');
+                        } catch (e) {
+                          Navigator.of(context).pop(); // 로딩 닫기
+                          _showError(context, '오류: $e');
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.delete_forever),
+                    label: const Text('DB 초기화 (삭제만)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade100,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuccess(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
