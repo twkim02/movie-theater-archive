@@ -20,7 +20,7 @@ class TasteScreen extends StatefulWidget {
 }
 
 class _TasteScreenState extends State<TasteScreen> {
-  _RangeMode _range = _RangeMode.all;
+  _RangeMode _range = _RangeMode.all; // (현재 화면에 range 토글은 안 쓰지만, 향후 확장용)
   _TrendMode _trend = _TrendMode.yearly;
 
   DateTime _rangeFrom(DateTime now) {
@@ -34,12 +34,10 @@ class _TasteScreenState extends State<TasteScreen> {
     }
   }
 
-  String _primaryGenre(Movie m) => (m.genres.isEmpty) ? '기타' : m.genres.first;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF3F6),
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         title: const Text('무비어리', style: TextStyle(fontWeight: FontWeight.w800)),
       ),
@@ -47,23 +45,40 @@ class _TasteScreenState extends State<TasteScreen> {
         valueListenable: RecordStore.records,
         builder: (context, records, _) {
           final now = DateTime.now();
-          final from = _rangeFrom(now);
-          final filtered = records.where((r) => !r.watchDate.isBefore(from)).toList();
 
-          final totalCount = filtered.length;
+          // ✅ 전체 기반 (상단 통계/추이/추천은 전체 기록 기준)
+          final allRecords = records;
+
+          // (확장용) range 적용 데이터
+          final from = _rangeFrom(now);
+          final _ = records.where((r) => !r.watchDate.isBefore(from)).toList();
+
+          final totalCount = allRecords.length;
           final avgRating = totalCount == 0
               ? 0.0
-              : filtered.map((r) => r.rating).reduce((a, b) => a + b) / totalCount;
+              : allRecords.map((r) => r.rating).reduce((a, b) => a + b) / totalCount;
 
-          // 장르 count + 장르별 평균
+          // ✅ 선호 장르(모든 장르 반영)
           final Map<String, int> genreCount = {};
           final Map<String, double> genreSum = {};
           final Map<String, int> genreN = {};
-          for (final r in filtered) {
-            final g = _primaryGenre(r.movie);
-            genreCount[g] = (genreCount[g] ?? 0) + 1;
-            genreSum[g] = (genreSum[g] ?? 0) + r.rating;
-            genreN[g] = (genreN[g] ?? 0) + 1;
+
+          void addGenreStat(String g, double rating) {
+            final key = g.isEmpty ? '기타' : g;
+            genreCount[key] = (genreCount[key] ?? 0) + 1;
+            genreSum[key] = (genreSum[key] ?? 0) + rating;
+            genreN[key] = (genreN[key] ?? 0) + 1;
+          }
+
+          for (final r in allRecords) {
+            final gs = r.movie.genres;
+            if (gs.isEmpty) {
+              addGenreStat('기타', r.rating);
+            } else {
+              for (final g in gs) {
+                addGenreStat(g, r.rating);
+              }
+            }
           }
 
           String favoriteGenre = '—';
@@ -79,17 +94,10 @@ class _TasteScreenState extends State<TasteScreen> {
             favoriteGenre = entries.first.key;
           }
 
-          // 도넛 데이터: 상위 5개 + 기타
-          final pieEntries = genreCount.entries.toList()
-            ..sort((a, b) => b.value.compareTo(a.value));
-          List<MapEntry<String, int>> pie = pieEntries.take(5).toList();
-          final rest = pieEntries.skip(5).fold<int>(0, (s, e) => s + e.value);
-          if (rest > 0) pie = [...pie, MapEntry('기타', rest)];
+          // ✅ 관람추이 데이터(전체 기록 기반)
+          final trendPoints = _buildTrend(allRecords, _trend);
 
-          // 추이 데이터
-          final trendPoints = _buildTrend(filtered, _trend);
-
-          // 추천
+          // ✅ 추천(전체 기록 기반)
           final watchedIds = records.map((r) => r.movie.id).toSet();
           final recs = _buildRecommendations(
             favoriteGenre: favoriteGenre,
@@ -100,47 +108,18 @@ class _TasteScreenState extends State<TasteScreen> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
-              // 상단 "내 취향 분석" + 리프레시
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    '내 취향 분석',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFFFF4FA0),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => setState(() {}),
-                    icon: const Icon(Icons.refresh, color: Color(0xFF444444)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-
+              // ✅ 탐색탭의 "탐색" 위치에만 "내 취향 분석"
               Text(
-                '취향',
+                '내 취향 분석',
                 style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
                   color: textPrimary,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                '기록이 만드는 나만의 추천',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: textSecondary,
-                ),
-              ),
+              const SizedBox(height: 12),
 
-              const SizedBox(height: 14),
-
-              // 요약 카드 3개
+              // ✅ 통계카드 3개
               Row(
                 children: [
                   Expanded(
@@ -171,38 +150,7 @@ class _TasteScreenState extends State<TasteScreen> {
 
               const SizedBox(height: 14),
 
-              // 장르 분포 (도넛 + 범례)
-              _Panel(
-                title: '장르 분포',
-                trailing: Row(
-                  children: [
-                    _ChipPill(
-                      label: '전체',
-                      selected: _range == _RangeMode.all,
-                      onTap: () => setState(() => _range = _RangeMode.all),
-                    ),
-                    const SizedBox(width: 8),
-                    _ChipPill(
-                      label: '1년',
-                      selected: _range == _RangeMode.oneYear,
-                      onTap: () => setState(() => _range = _RangeMode.oneYear),
-                    ),
-                    const SizedBox(width: 8),
-                    _ChipPill(
-                      label: '3년',
-                      selected: _range == _RangeMode.threeYear,
-                      onTap: () => setState(() => _range = _RangeMode.threeYear),
-                    ),
-                  ],
-                ),
-                child: totalCount == 0
-                    ? const _EmptySmall(text: '아직 기록이 없어요.')
-                    : _GenreDonutLegendChart(data: pie),
-              ),
-
-              const SizedBox(height: 14),
-
-              // 관람 추이 (포인트 1개면 요약 카드 / 2개 이상이면 그래프)
+              // ✅ 관람 추이 그래프
               _Panel(
                 title: '관람 추이',
                 trailing: Row(
@@ -225,15 +173,14 @@ class _TasteScreenState extends State<TasteScreen> {
                     : (trendPoints.length <= 1
                         ? _SinglePointTrendSummary(points: trendPoints)
                         : Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12), // ✅ 핵심: 좌우 여백
-                            child: Center(
-                              child: _LineTrendChart(points: trendPoints),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: _LineTrendChart(points: trendPoints),
                           )),
               ),
 
               const SizedBox(height: 16),
 
+              // 추천 영화
               Text(
                 '추천 영화',
                 style: TextStyle(
@@ -248,9 +195,9 @@ class _TasteScreenState extends State<TasteScreen> {
                 const _EmptySmall(text: '추천할 영화가 아직 없어요.')
               else
                 ...recs.map((m) {
-                  final g = _primaryGenre(m);
-                  final reason = (favoriteGenre != '—' && favoriteGenre == g)
-                      ? '$g에서 높은 평점을 자주 줬어요'
+                  final g = (m.genres.isEmpty) ? '기타' : m.genres.first;
+                  final reason = (favoriteGenre != '—' && m.genres.contains(favoriteGenre))
+                      ? '$favoriteGenre 취향 기반 추천'
                       : '$g 취향도 좋아하실 것 같아요';
 
                   return Padding(
@@ -273,7 +220,7 @@ class _TasteScreenState extends State<TasteScreen> {
                   border: Border.all(color: Colors.black12),
                 ),
                 child: Text(
-                  '💡 내가 높은 평점을 준 장르와 키워드를 기반으로 추천합니다',
+                  '💡 추천은 내 기록(별점/장르)을 기반으로 만들어져요',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
@@ -290,6 +237,7 @@ class _TasteScreenState extends State<TasteScreen> {
 
   List<_TrendPoint> _buildTrend(List<Record> records, _TrendMode mode) {
     final Map<String, int> cnt = {};
+
     String keyOf(DateTime d) {
       if (mode == _TrendMode.yearly) return '${d.year}';
       final mm = d.month.toString().padLeft(2, '0');
@@ -314,9 +262,7 @@ class _TasteScreenState extends State<TasteScreen> {
     final candidates = allMoviesList.where((m) => !watchedIds.contains(m.id)).toList();
 
     if (favoriteGenre != '—') {
-      final fav = candidates
-          .where((m) => (m.genres.isNotEmpty && m.genres.first == favoriteGenre))
-          .toList()
+      final fav = candidates.where((m) => m.genres.contains(favoriteGenre)).toList()
         ..sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
       if (fav.isNotEmpty) return fav.take(2).toList();
     }
@@ -325,7 +271,7 @@ class _TasteScreenState extends State<TasteScreen> {
       final best = genreAvgRating.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
       final g = best.first.key;
 
-      final byG = candidates.where((m) => (m.genres.isNotEmpty && m.genres.first == g)).toList()
+      final byG = candidates.where((m) => m.genres.contains(g)).toList()
         ..sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
       if (byG.isNotEmpty) return byG.take(2).toList();
     }
@@ -406,7 +352,7 @@ class _Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(18), // ✅ 카드 밖으로 나가는 느낌 방지
+      borderRadius: BorderRadius.circular(18),
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         decoration: BoxDecoration(
@@ -507,138 +453,6 @@ class _EmptySmall extends StatelessWidget {
   }
 }
 
-// ---------------- Donut + Legend ----------------
-
-class _GenreDonutLegendChart extends StatelessWidget {
-  final List<MapEntry<String, int>> data;
-  const _GenreDonutLegendChart({required this.data});
-
-  static const _palette = [
-    Color(0xFF8E7BFF),
-    Color(0xFFFF5C9A),
-    Color(0xFF5CA6FF),
-    Color(0xFFFFC83D),
-    Color(0xFF2ED2A0),
-    Color(0xFFBDBDBD),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final total = data.fold<int>(0, (s, e) => s + e.value);
-    final colors = List<Color>.generate(data.length, (i) => _palette[i % _palette.length]);
-
-    return SizedBox(
-      height: 200,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 160,
-            height: 160,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CustomPaint(
-                  size: const Size(160, 160),
-                  painter: _DonutPainter(
-                    values: data.map((e) => e.value.toDouble()).toList(),
-                    colors: colors,
-                  ),
-                ),
-                Text(
-                  '총 $total회',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w900,
-                    color: textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: List.generate(data.length, (i) {
-                final e = data[i];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: colors[i],
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          e.key,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w900,
-                            color: textPrimary,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '${e.value}회',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w900,
-                          color: colors[i],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DonutPainter extends CustomPainter {
-  final List<double> values;
-  final List<Color> colors;
-  _DonutPainter({required this.values, required this.colors});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final total = values.fold<double>(0, (s, v) => s + v);
-    if (total <= 0) return;
-
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    double start = -pi / 2;
-
-    final paint = Paint()..style = PaintingStyle.fill;
-
-    for (int i = 0; i < values.length; i++) {
-      final sweep = (values[i] / total) * 2 * pi;
-      paint.color = colors[i];
-      canvas.drawArc(rect, start, sweep, true, paint);
-      start += sweep;
-    }
-
-    final center = Offset(size.width / 2, size.height / 2);
-    final hole = Paint()..color = Colors.white;
-    canvas.drawCircle(center, size.width * 0.24, hole);
-  }
-
-  @override
-  bool shouldRepaint(covariant _DonutPainter oldDelegate) =>
-      oldDelegate.values != values || oldDelegate.colors != colors;
-}
-
 // ---------------- Trend Points ----------------
 
 class _TrendPoint {
@@ -691,10 +505,13 @@ class _LineTrendChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: double.infinity, // ✅ 폭을 확실히
-      height: 170,
-      child: CustomPaint(
-        painter: _LinePainter(points),
+      width: double.infinity,
+      height: 200, // ✅ 더 여유 있게
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 8, 6, 8), // ✅ 바깥 여백
+        child: CustomPaint(
+          painter: _LinePainter(points),
+        ),
       ),
     );
   }
@@ -708,11 +525,11 @@ class _LinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) return;
 
-    // 바깥 padding
-    const padL = 46.0;
-    const padT = 14.0;
-    const padR = 18.0;
-    const padB = 30.0;
+    // ✅ 바깥 padding(라벨/점 잘림 방지)
+    const padL = 56.0;
+    const padT = 20.0;
+    const padR = 26.0;
+    const padB = 44.0;
 
     // 내부 여백
     const innerX = 12.0;
@@ -773,9 +590,10 @@ class _LinePainter extends CustomPainter {
 
     final dotPaint = Paint()..color = const Color(0xFFFF5C9A);
 
-    // 클립
+    // ✅ 클립을 plot보다 조금 크게 (점/선 잘림 방지)
     canvas.save();
-    canvas.clipRect(plot);
+    final clip = plot.inflate(12);
+    canvas.clipRect(clip);
 
     final path = Path()..moveTo(pt(0).dx, pt(0).dy);
     for (int i = 1; i < points.length; i++) {
@@ -801,16 +619,16 @@ class _LinePainter extends CustomPainter {
       tp.text = TextSpan(text: points[i].label, style: labelStyle);
       tp.layout();
       final x = (pt(i).dx - tp.width / 2).clamp(plot.left, plot.right - tp.width);
-      tp.paint(canvas, Offset(x, plot.bottom + 6));
+      tp.paint(canvas, Offset(x, plot.bottom + 8));
     }
 
     tp.text = TextSpan(text: '0', style: labelStyle);
     tp.layout();
-    tp.paint(canvas, Offset(10, plot.bottom - 6));
+    tp.paint(canvas, Offset(12, plot.bottom - 8));
 
     tp.text = TextSpan(text: maxV.toStringAsFixed(0), style: labelStyle);
     tp.layout();
-    tp.paint(canvas, Offset(10, plot.top - 6));
+    tp.paint(canvas, Offset(12, plot.top - 8));
   }
 
   @override
@@ -947,7 +765,7 @@ class _RecommendCard extends StatelessWidget {
                             ),
                           ),
                           child: const Text(
-                            '기록 추가',
+                            '✍️일기 쓰기',
                             style: TextStyle(fontWeight: FontWeight.w900),
                           ),
                         ),
@@ -971,7 +789,7 @@ class _RecommendCard extends StatelessWidget {
                             ),
                             alignment: Alignment.center,
                             child: Icon(
-                              saved ? Icons.favorite : Icons.favorite_border,
+                              saved ? Icons.bookmark : Icons.bookmark_border,
                               color: saved ? const Color(0xFFFF4FA0) : Colors.black38,
                             ),
                           ),
