@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'screens/root_screen.dart';
 import 'state/app_state.dart';
 
@@ -13,6 +14,12 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'movie_diary_app',
         debugShowCheckedModeBanner: false,
+
+        // ✅ Typo 크레파스 폰트 적용
+        theme: ThemeData(
+          fontFamily: 'TypoCrayon',
+        ),
+
         home: const RootScreen(),
       ),
     );
