@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/colors.dart';
 import '../models/movie.dart';
 import '../widgets/add_record_sheet.dart';
 import '../data/saved_store.dart';
-import '../data/dummy_movies.dart';
+import '../state/app_state.dart';
+import 'test_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -36,7 +38,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final allMoviesList = DummyMovies.getMovies();
+    final appState = context.watch<AppState>();
+    final allMoviesList = appState.movies;
     final recentMovies = _applySearch(allMoviesList.where((m) => m.isRecent).toList());
     final allMovies = _applySearch(allMoviesList.where((m) => !m.isRecent).toList());
 
@@ -47,6 +50,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
           '무비어리',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            tooltip: 'TMDb API 테스트',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TestScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: ValueListenableBuilder<Set<String>>(
         valueListenable: SavedStore.savedIds,

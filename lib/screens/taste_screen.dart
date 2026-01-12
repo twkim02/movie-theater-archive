@@ -1,10 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../theme/colors.dart';
 import '../data/record_store.dart';
 import '../data/saved_store.dart';
-import '../data/dummy_movies.dart';
+import '../state/app_state.dart';
 import '../models/record.dart';
 import '../models/movie.dart';
 import '../widgets/add_record_sheet.dart';
@@ -98,11 +99,14 @@ class _TasteScreenState extends State<TasteScreen> {
           final trendPoints = _buildTrend(allRecords, _trend);
 
           // ✅ 추천(전체 기록 기반)
+          final appState = Provider.of<AppState>(context, listen: false);
+          final allMoviesList = appState.movies;
           final watchedIds = records.map((r) => r.movie.id).toSet();
           final recs = _buildRecommendations(
             favoriteGenre: favoriteGenre,
             watchedIds: watchedIds,
             genreAvgRating: {for (final k in genreN.keys) k: genreSum[k]! / genreN[k]!},
+            allMoviesList: allMoviesList,
           );
 
           return ListView(
@@ -257,8 +261,8 @@ class _TasteScreenState extends State<TasteScreen> {
     required String favoriteGenre,
     required Set<String> watchedIds,
     required Map<String, double> genreAvgRating,
+    required List<Movie> allMoviesList,
   }) {
-    final allMoviesList = DummyMovies.getMovies();
     final candidates = allMoviesList.where((m) => !watchedIds.contains(m.id)).toList();
 
     if (favoriteGenre != '—') {

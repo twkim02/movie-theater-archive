@@ -36,6 +36,22 @@ dependencies:
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
 
+  # Database
+  sqflite: ^2.3.0
+  path: ^1.8.3
+
+  # HTTP 통신 (TMDb API)
+  http: ^1.1.0
+
+  # 환경 변수 관리 (API 키)
+  flutter_dotenv: ^5.1.0
+
+  # SharedPreferences (초기화 플래그 저장용)
+  shared_preferences: ^2.2.2
+
+  # 백그라운드 작업 (자동 갱신) - 나중에 필요할 때 추가
+  # workmanager: ^0.5.2  # 현재 Kotlin 컴파일 오류로 인해 주석 처리
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -59,9 +75,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - env.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

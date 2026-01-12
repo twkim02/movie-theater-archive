@@ -7,6 +7,7 @@ import '../data/dummy_movies.dart';
 import '../data/dummy_record.dart';
 import '../data/dummy_wishlist.dart';
 import '../data/dummy_summary.dart';
+import '../repositories/movie_repository.dart';
 
 /// 기록 정렬 옵션
 enum RecordSortOption {
@@ -41,9 +42,42 @@ class AppState extends ChangeNotifier {
   // 동적으로 추가된 위시리스트 아이템들을 저장 (더미데이터 외 추가된 항목)
   final List<WishlistItem> _customWishlistItems = [];
 
+  // 영화 리스트 캐시 (DB에서 로드한 데이터)
+  List<Movie> _movies = [];
+  bool _moviesLoaded = false;
+
   /// 모든 영화 리스트를 반환합니다.
-  /// 더미데이터 예시.txt의 영화 정보를 기반으로 합니다.
-  List<Movie> get movies => DummyMovies.getMovies();
+  /// DB에서 로드한 데이터를 반환하며, 아직 로드되지 않았으면 더미 데이터를 반환합니다.
+  List<Movie> get movies {
+    if (_moviesLoaded && _movies.isNotEmpty) {
+      return _movies;
+    }
+    // DB가 아직 로드되지 않았으면 더미 데이터 반환 (fallback)
+    return DummyMovies.getMovies();
+  }
+
+  /// 영화 리스트를 DB에서 로드합니다.
+  /// 
+  /// 앱 시작 시 한 번 호출하여 DB에서 영화 데이터를 로드합니다.
+  Future<void> loadMoviesFromDatabase() async {
+    try {
+      _movies = await MovieRepository.getAllMovies();
+      _moviesLoaded = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('영화 로드 실패: $e');
+      // 에러 발생 시 더미 데이터 사용
+      _movies = DummyMovies.getMovies();
+      _moviesLoaded = false;
+    }
+  }
+
+  /// 영화 리스트를 새로고침합니다.
+  /// 
+  /// DB에서 최신 데이터를 다시 로드합니다.
+  Future<void> refreshMovies() async {
+    await loadMoviesFromDatabase();
+  }
 
   /// 북마크된 영화 ID 목록을 반환합니다.
   Set<String> get bookmarkedMovieIds => Set.unmodifiable(_bookmarkedMovieIds);

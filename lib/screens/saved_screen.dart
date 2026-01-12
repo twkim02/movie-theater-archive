@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/colors.dart';
 import '../data/saved_store.dart';
 import '../models/movie.dart';
-import '../data/dummy_movies.dart';
+import '../state/app_state.dart';
 
 class SavedScreen extends StatefulWidget {
   const SavedScreen({super.key});
@@ -41,7 +42,8 @@ class _SavedScreenState extends State<SavedScreen> {
         child: ValueListenableBuilder<Set<String>>(
           valueListenable: SavedStore.savedIds,
           builder: (context, savedIds, _) {
-            final allMoviesList = DummyMovies.getMovies();
+            final appState = context.watch<AppState>();
+            final allMoviesList = appState.movies;
             final savedMovies = allMoviesList.where((m) => savedIds.contains(m.id)).toList();
             final shown = _filterMovies(savedMovies);
 
