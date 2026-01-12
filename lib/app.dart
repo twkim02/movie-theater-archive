@@ -6,6 +6,7 @@ import 'state/app_state.dart';
 import 'database/movie_database.dart';
 import 'services/movie_db_initializer.dart';
 import 'services/movie_initialization_service.dart';
+import 'services/movie_update_service.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -62,6 +63,12 @@ class MyApp extends StatelessWidget {
 
       // DB에서 영화 로드
       await appState.loadMoviesFromDatabase();
+
+      // 24시간 경과 확인 및 자동 갱신
+      await MovieUpdateService.checkAndUpdateIfNeeded();
+      
+      // 갱신 후 영화 리스트 다시 로드
+      await appState.refreshMovies();
     } catch (e) {
       debugPrint('DB 초기화 실패: $e');
       // 에러 발생 시에도 앱은 계속 실행

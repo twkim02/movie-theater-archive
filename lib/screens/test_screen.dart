@@ -9,6 +9,8 @@ import '../models/movie.dart';
 import '../repositories/movie_repository.dart';
 import '../services/movie_db_initializer.dart';
 import '../services/movie_initialization_service.dart';
+import '../services/movie_update_service.dart';
+import '../repositories/movie_repository.dart';
 
 /// 개발/테스트용 화면
 /// 작성한 코드가 제대로 작동하는지 시각적으로 확인할 수 있습니다.
@@ -1532,6 +1534,83 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                     label: const Text('러닝타임 업데이트'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 영화 갱신 (현재 상영 중인 영화 업데이트)
+          Card(
+            color: Colors.purple.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '7️⃣ 현재 상영 영화 갱신',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  FutureBuilder<String>(
+                    future: MovieUpdateService.getLastUpdateTimeFormatted(),
+                    builder: (context, snapshot) {
+                      final lastUpdate = snapshot.data ?? '로딩 중...';
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('마지막 갱신: $lastUpdate'),
+                          const SizedBox(height: 8),
+                          FutureBuilder<bool>(
+                            future: MovieUpdateService.shouldUpdate(),
+                            builder: (context, snapshot) {
+                              final shouldUpdate = snapshot.data ?? false;
+                              return Text(
+                                shouldUpdate
+                                    ? '⚠️ 24시간 경과 - 갱신 필요'
+                                    : '✅ 최근에 갱신됨',
+                                style: TextStyle(
+                                  color: shouldUpdate ? Colors.orange : Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '현재 상영 중인 영화 정보를 TMDb API에서 가져와서 업데이트합니다.\n'
+                    '스마트 업데이트: 새 영화만 추가하고, 더 이상 상영 중이 아닌 영화는 is_recent 플래그만 변경합니다.',
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '영화 갱신 중...\n시간이 걸릴 수 있습니다.');
+                      try {
+                        final count = await MovieUpdateService.updateNowPlayingMovies();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        await appState.refreshMovies(); // 영화 리스트 새로고침
+                        setState(() {}); // UI 새로고침 (마지막 갱신 시간 표시 업데이트)
+                        _showSuccess(context, '영화 갱신 완료!\n$count개의 새 영화가 추가되었습니다.');
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('영화 갱신 실행'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
                       foregroundColor: Colors.white,
                     ),
                   ),
