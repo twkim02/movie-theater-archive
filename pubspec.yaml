@@ -57,6 +57,7 @@ flutter:
 
   assets:
     - assets/fonts/
+    - env.json
 
   fonts:
     - family: TypoCrayon
