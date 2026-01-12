@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-
+import 'package:provider/provider.dart';
 import '../theme/colors.dart';
-import '../data/record_store.dart';
 import '../models/record.dart';
+import '../state/app_state.dart';
 
 // ✅ 새로 추가한 기록 팝업용 모델/위젯
 import '../widgets/movie_diary_popup.dart';
@@ -310,9 +310,9 @@ class _DiaryScreenState extends State<DiaryScreen> {
         ),
       ),
       body: SafeArea(
-        child: ValueListenableBuilder<List<Record>>(
-          valueListenable: RecordStore.records,
-          builder: (context, records, _) {
+        child: Consumer<AppState>(
+          builder: (context, appState, _) {
+            final records = appState.records;
             final earliestIdMap = _earliestRecordIdByMovie(records);
 
             final filtered = records.where((r) => _matchesQuery(r) && _matchesRange(r)).toList();
@@ -448,7 +448,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
                                   candidates.sort((a, b) => b.watchDate.compareTo(a.watchDate));
                                   final latestRecord = candidates.first;
-                                  openDiaryPopup(context, candidates.first);
+                                  
                                   openDiaryPopup(context, latestRecord);
                                 },
                               );
