@@ -30,7 +30,7 @@ void main() {
         "oneLiner": "압도적인 영상미",
         "detailedReview": "정말 감동적인 영화였습니다.",
         "tags": ["가족", "극장"],
-        "photoUrl": "https://example.com/photo.jpg",
+        "photoPaths:": "https://example.com/photo.jpg",
       };
 
       // When: fromJson으로 변환 (Movie 객체 제공)
@@ -44,13 +44,13 @@ void main() {
       expect(record.oneLiner, "압도적인 영상미");
       expect(record.detailedReview, "정말 감동적인 영화였습니다.");
       expect(record.tags, ["가족", "극장"]);
-      expect(record.photoUrl, "https://example.com/photo.jpg");
+      expect(record.photoPaths, "https://example.com/photo.jpg");
       expect(record.movie.id, testMovie.id);
       expect(record.movie.title, testMovie.title);
     });
 
     test('선택적 필드가 null인 경우 처리', () {
-      // Given: oneLiner, detailedReview, photoUrl이 없는 JSON
+      // Given: oneLiner, detailedReview, photoPaths이 없는 JSON
       final json = {
         "id": 102,
         "userId": 1,
@@ -67,7 +67,7 @@ void main() {
       expect(record.rating, 5.0);
       expect(record.oneLiner, isNull);
       expect(record.detailedReview, isNull);
-      expect(record.photoUrl, isNull);
+      expect(record.photoPaths, isNull);
       expect(record.tags, ["혼자"]);
     });
 
@@ -81,7 +81,7 @@ void main() {
         oneLiner: "압도적인 영상미",
         detailedReview: "정말 감동적인 영화였습니다.",
         tags: ["가족", "극장"],
-        photoUrl: "https://example.com/photo.jpg",
+        photoPaths: const [],
         movie: testMovie,
       );
 
@@ -96,7 +96,7 @@ void main() {
       expect(json['oneLiner'], "압도적인 영상미");
       expect(json['detailedReview'], "정말 감동적인 영화였습니다.");
       expect(json['tags'], ["가족", "극장"]);
-      expect(json['photoUrl'], "https://example.com/photo.jpg");
+      expect(json['photoPaths:'], "https://example.com/photo.jpg");
       expect(json['movie'], isA<Map<String, dynamic>>());
       expect(json['movie']['id'], testMovie.id);
       expect(json['movie']['title'], testMovie.title);

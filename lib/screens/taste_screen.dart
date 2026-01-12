@@ -71,13 +71,8 @@ class _TasteScreenState extends State<TasteScreen> {
 
           for (final r in allRecords) {
             final gs = r.movie.genres;
-            if (gs.isEmpty) {
-              addGenreStat('기타', r.rating);
-            } else {
-              for (final g in gs) {
-                addGenreStat(g, r.rating);
-              }
-            }
+            final primaryGenre = gs.isEmpty ? '기타' : gs.first;
+            addGenreStat(primaryGenre, r.rating);
           }
 
           String favoriteGenre = '—';
@@ -92,6 +87,37 @@ class _TasteScreenState extends State<TasteScreen> {
               });
             favoriteGenre = entries.first.key;
           }
+
+
+        // ✅ (원그래프) 장르 분포 도넛: range 적용(전체/1년/3년) + 대표장르 1개만 반영
+          final fromForPie = _rangeFrom(now);
+          final rangeRecords = records.where((r) => !r.watchDate.isBefore(fromForPie)).toList();
+
+          final Map<String, int> rangeGenreCount = {};
+
+        // ✅ 반드시 "for문 위"에 선언!
+          void addRangeGenre(String g) {
+            final key = g.isEmpty ? '기타' : g;
+            rangeGenreCount[key] = (rangeGenreCount[key] ?? 0) + 1;
+          }
+
+        // ✅ 대표 장르 1개만 카운트 (총 기록 수와 합이 일치)
+          for (final r in rangeRecords) {
+            final gs = r.movie.genres;
+            final primaryGenre = gs.isEmpty ? '기타' : gs.first;
+            addRangeGenre(primaryGenre);
+          }
+
+          final pieEntries = rangeGenreCount.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+
+          List<MapEntry<String, int>> pie = pieEntries.take(5).toList();
+          final rest = pieEntries.skip(5).fold<int>(0, (s, e) => s + e.value);
+          if (rest > 0) pie = [...pie, MapEntry('기타', rest)];
+
+
+
+
 
           // ✅ 관람추이 데이터(전체 기록 기반)
           final trendPoints = _buildTrend(allRecords, _trend);
@@ -150,6 +176,39 @@ class _TasteScreenState extends State<TasteScreen> {
               ),
 
               const SizedBox(height: 14),
+
+              // ✅ (추가) 장르 분포 (도넛 + 범례)
+              _Panel(
+                title: '장르 분포',
+                trailing: Row(
+                  children: [
+                    _ChipPill(
+                      label: '전체',
+                      selected: _range == _RangeMode.all,
+                      onTap: () => setState(() => _range = _RangeMode.all),
+                    ),
+                    const SizedBox(width: 8),
+                    _ChipPill(
+                      label: '1년',
+                      selected: _range == _RangeMode.oneYear,
+                      onTap: () => setState(() => _range = _RangeMode.oneYear),
+                    ),
+                    const SizedBox(width: 8),
+                    _ChipPill(
+                      label: '3년',
+                      selected: _range == _RangeMode.threeYear,
+                      onTap: () => setState(() => _range = _RangeMode.threeYear),
+                    ),
+                  ],
+                ),
+                child: pie.isEmpty
+                    ? const _EmptySmall(text: '해당 기간에 기록이 없어요.')
+                    : _GenreDonutLegendChart(data: pie),
+              ),
+
+              const SizedBox(height: 14),
+
+
 
               // ✅ 관람 추이 그래프
               _Panel(
@@ -806,4 +865,158 @@ class _RecommendCard extends StatelessWidget {
       ),
     );
   }
+}
+
+
+// ---------------- Donut + Legend ----------------
+
+class _GenreDonutLegendChart extends StatelessWidget {
+  final List<MapEntry<String, int>> data;
+  const _GenreDonutLegendChart({required this.data});
+
+  // ✅ 장르별 색상 고정 팔레트
+  static const Map<String, Color> _fixedColors = {
+    '코미디': Color(0xFFFF6F91), // 핑크
+    '범죄': Color(0xFF2F2F2F),   // 거의 블랙
+    '드라마': Color(0xFF4D96FF), // 블루
+    '액션': Color(0xFFFFC75F),   // 옐로
+    '애니메이션': Color(0xFF00C9A7), // 민트
+    'SF': Color(0xFF845EC2),     // 보라
+    '스릴러': Color(0xFFFF8066), // 오렌지레드
+    '기타': Color(0xFFBDBDBD),   // 회색
+  };
+
+  Color _colorForGenre(String genre) {
+    // 1️⃣ 고정 색이 있으면 무조건 그걸 사용
+    final fixed = _fixedColors[genre];
+    if (fixed != null) return fixed;
+
+    // 2️⃣ 나머지는 장르명 기반으로 항상 같은 색 생성
+    final h = (genre.hashCode & 0x7fffffff) % 360;
+
+    const s = 0.65; // 채도
+    const v = 0.90; // 명도
+
+    return HSVColor.fromAHSV(1.0, h.toDouble(), s, v).toColor();
+  }
+
+
+
+
+  @override
+  Widget build(BuildContext context) {
+    final total = data.fold<int>(0, (s, e) => s + e.value);
+    final colors = data.map((e) => _colorForGenre(e.key)).toList();
+
+    return SizedBox(
+      height: 200,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 160,
+            height: 160,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CustomPaint(
+                  size: const Size(160, 160),
+                  painter: _DonutPainter(
+                    values: data.map((e) => e.value.toDouble()).toList(),
+                    colors: colors,
+                  ),
+                ),
+                Text(
+                  '총 $total회',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                    color: textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: List.generate(data.length, (i) {
+                final e = data[i];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: colors[i],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          e.key,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w900,
+                            color: textPrimary,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${e.value}회',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w900,
+                          color: colors[i],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DonutPainter extends CustomPainter {
+  final List<double> values;
+  final List<Color> colors;
+  _DonutPainter({required this.values, required this.colors});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = values.fold<double>(0, (s, v) => s + v);
+    if (total <= 0) return;
+
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    double start = -pi / 2;
+
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    for (int i = 0; i < values.length; i++) {
+      final sweep = (values[i] / total) * 2 * pi;
+      paint.color = colors[i];
+      canvas.drawArc(rect, start, sweep, true, paint);
+      start += sweep;
+    }
+
+    // 가운데 구멍(도넛)
+    final center = Offset(size.width / 2, size.height / 2);
+    final hole = Paint()..color = Colors.white;
+    canvas.drawCircle(center, size.width * 0.24, hole);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutPainter oldDelegate) =>
+      oldDelegate.values != values || oldDelegate.colors != colors;
 }

@@ -9,8 +9,8 @@ class Record {
   final DateTime watchDate; // 관람일
   final String? oneLiner; // 한줄평 (선택)
   final String? detailedReview; // 상세 리뷰 (선택)
-  final List<String> tags; // 태그 목록
-  final String? photoUrl; // 업로드한 사진 URL (선택)
+  final List<String> tags; // 태그 목록 (✅ 최대 2개 제한은 UI에서 처리)
+  final List<String> photoPaths; // ✅ 첨부 사진(선택) - 로컬 파일 경로 리스트
   final Movie movie; // 영화 정보
 
   Record({
@@ -21,12 +21,11 @@ class Record {
     this.oneLiner,
     this.detailedReview,
     required this.tags,
-    this.photoUrl,
+    this.photoPaths = const [],
     required this.movie,
   });
 
   factory Record.fromJson(Map<String, dynamic> json, {Movie? movie}) {
-    // movie 객체를 Movie 모델로 변환
     // movie 파라미터가 제공되면 사용하고, 없으면 json에서 생성
     Movie movieObj;
     if (movie != null) {
@@ -46,6 +45,19 @@ class Record {
       });
     }
 
+    // ✅ photoPaths 우선 지원
+    final pathsFromJson = (json['photoPaths'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList();
+
+    // ✅ (과거 호환) 기존 photoPaths(단일)이 남아있으면 photoPaths로 변환
+    final legacyphotoPaths = json['photoPaths'] as String?;
+    final finalPhotoPaths = pathsFromJson.isNotEmpty
+        ? pathsFromJson
+        : (legacyphotoPaths == null || legacyphotoPaths.isEmpty
+            ? <String>[]
+            : <String>[legacyphotoPaths]);
+
     return Record(
       id: (json['id'] as num).toInt(),
       userId: (json['userId'] as num).toInt(),
@@ -54,7 +66,7 @@ class Record {
       oneLiner: json['oneLiner'] as String?,
       detailedReview: json['detailedReview'] as String?,
       tags: List<String>.from(json['tags'] ?? []),
-      photoUrl: json['photoUrl'] as String?,
+      photoPaths: finalPhotoPaths,
       movie: movieObj,
     );
   }
@@ -68,7 +80,7 @@ class Record {
       'oneLiner': oneLiner,
       'detailedReview': detailedReview,
       'tags': tags,
-      'photoUrl': photoUrl,
+      'photoPaths': photoPaths, // ✅ 변경된 필드
       'movie': {
         'id': movie.id,
         'title': movie.title,
@@ -85,7 +97,7 @@ class Record {
     String? oneLiner,
     String? detailedReview,
     List<String>? tags,
-    String? photoUrl,
+    List<String>? photoPaths,
     Movie? movie,
   }) {
     return Record(
@@ -96,7 +108,7 @@ class Record {
       oneLiner: oneLiner ?? this.oneLiner,
       detailedReview: detailedReview ?? this.detailedReview,
       tags: tags ?? this.tags,
-      photoUrl: photoUrl ?? this.photoUrl,
+      photoPaths: photoPaths ?? this.photoPaths,
       movie: movie ?? this.movie,
     );
   }
