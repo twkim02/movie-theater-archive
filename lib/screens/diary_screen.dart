@@ -5,10 +5,7 @@ import '../data/record_store.dart';
 import '../models/record.dart';
 
 // ✅ 새로 추가한 기록 팝업용 모델/위젯
-import '../models/diary_record.dart';
 import '../widgets/movie_diary_popup.dart';
-
-
 
 enum RecordSort { latest, rating, mostWatched }
 
@@ -48,27 +45,13 @@ class _DiaryScreenState extends State<DiaryScreen> {
   DateTime? _fromDate;
   DateTime? _toDate;
 
-  // ✅ 테스트용 더미 데이터는 StatefulWidget이 아니라 State 안에 둬야 함
-  final DiaryRecord testRecord = DiaryRecord(
-    date: DateTime(2026, 1, 12),
-    movieTitle: '기생충',
-    posterUrl: 'https://image.tmdb.org/t/p/w500/5j8e1F9FZp6ZQ0nZ0c2sZ7p.jpg',
-    rating: 4.5,
-    oneLine: '몰입해서 끝까지 본 사회파 드라마',
-    tags: ['사회파 드라마', '반전의 반전'],
-    genres: ['스릴러', '드라마'],
-    photos: [
-      'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=800&q=60',
-      'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=60',
-    ],
-    detail: '짜장면 먹으면서 봤는데 진짜 시간 가는 줄 몰랐다...\n결말에서 완전 충격.',
-  );
-
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
+
+
 
   String _formatDate(DateTime d) {
     final mm = d.month.toString().padLeft(2, '0');
@@ -458,8 +441,15 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                 rating: it.avgRating,
                                 watchCount: it.watchCount,
                                 onTap: () {
-                                  // 🔥 테스트: 어떤 카드든 눌러도 팝업 뜨게
-                                  openDiaryPopup(context, testRecord);
+                                  // ✅ 해당 movieId의 "최신 기록"으로 팝업 띄우기
+                                  final candidates =
+                                      filtered.where((r) => r.movie.id == it.movieId).toList();
+                                  if (candidates.isEmpty) return;
+
+                                  candidates.sort((a, b) => b.watchDate.compareTo(a.watchDate));
+                                  final latestRecord = candidates.first;
+                                  openDiaryPopup(context, candidates.first);
+                                  openDiaryPopup(context, latestRecord);
                                 },
                               );
                             }
@@ -476,8 +466,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                               dateText: _formatDate(r.watchDate),
                               isRewatch: isRewatch,
                               onTap: () {
-                                // 🔥 테스트: 눌렀을 때 팝업
-                                openDiaryPopup(context, testRecord);
+                                openDiaryPopup(context, r);
                               },
                             );
                           },
@@ -551,7 +540,7 @@ class _DiaryGridCardRecord extends StatelessWidget {
   final String oneLiner;
   final String dateText;
   final bool isRewatch;
-  final VoidCallback onTap; // ✅ 추가
+  final VoidCallback onTap;
 
   const _DiaryGridCardRecord({
     required this.title,
@@ -560,7 +549,7 @@ class _DiaryGridCardRecord extends StatelessWidget {
     required this.oneLiner,
     required this.dateText,
     required this.isRewatch,
-    required this.onTap, // ✅ 추가
+    required this.onTap,
   });
 
   @override
@@ -568,7 +557,7 @@ class _DiaryGridCardRecord extends StatelessWidget {
     const radius = 8.0;
 
     return InkWell(
-      onTap: onTap, // ✅ 카드 클릭
+      onTap: onTap,
       borderRadius: BorderRadius.circular(radius),
       child: Container(
         decoration: BoxDecoration(
@@ -606,7 +595,7 @@ class _DiaryGridCardRecord extends StatelessWidget {
                           posterUrl,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
+                          errorBuilder: (_, __, ___) => Container(
                             color: Colors.black12,
                             alignment: Alignment.center,
                             child: const Icon(Icons.broken_image_outlined),
@@ -677,14 +666,14 @@ class _DiaryGridCardMostWatched extends StatelessWidget {
   final String posterUrl;
   final double rating;
   final int watchCount;
-  final VoidCallback onTap; // ✅ 추가
+  final VoidCallback onTap;
 
   const _DiaryGridCardMostWatched({
     required this.title,
     required this.posterUrl,
     required this.rating,
     required this.watchCount,
-    required this.onTap, // ✅ 추가
+    required this.onTap,
   });
 
   @override
@@ -692,7 +681,7 @@ class _DiaryGridCardMostWatched extends StatelessWidget {
     const radius = 8.0;
 
     return InkWell(
-      onTap: onTap, // ✅ 카드 클릭
+      onTap: onTap,
       borderRadius: BorderRadius.circular(radius),
       child: Container(
         decoration: BoxDecoration(
@@ -728,7 +717,7 @@ class _DiaryGridCardMostWatched extends StatelessWidget {
                       posterUrl,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
+                      errorBuilder: (_, __, ___) => Container(
                         color: Colors.black12,
                         alignment: Alignment.center,
                         child: const Icon(Icons.broken_image_outlined),

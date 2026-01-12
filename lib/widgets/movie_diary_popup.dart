@@ -1,9 +1,14 @@
+import 'dart:io';
 import 'dart:ui';
-import 'package:flutter/material.dart';
-import '../models/diary_record.dart';
 
-/// ✅ 팝업 열기 함수
-void openDiaryPopup(BuildContext context, DiaryRecord record) {
+import 'package:flutter/material.dart';
+
+import '../data/record_store.dart';
+import '../models/record.dart';
+import '../widgets/add_record_sheet.dart';
+
+/// ✅ 팝업 열기 함수 (Record를 받음)
+void openDiaryPopup(BuildContext context, Record record) {
   showGeneralDialog(
     context: context,
     barrierDismissible: true,
@@ -23,11 +28,93 @@ void openDiaryPopup(BuildContext context, DiaryRecord record) {
 }
 
 class MovieDiaryPopup extends StatelessWidget {
-  final DiaryRecord record;
+  final Record record;
   const MovieDiaryPopup({super.key, required this.record});
 
   String _fmtDate(DateTime d) =>
       "${d.year.toString().padLeft(4, '0')}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}";
+
+  // ✅ 네트워크 URL이면 Image.network, 로컬 파일 경로면 Image.file
+  Widget _smartImage(
+    String pathOrUrl, {
+    BoxFit fit = BoxFit.cover,
+    Widget? error,
+  }) {
+    final isNetwork = pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://');
+
+    if (isNetwork) {
+      return Image.network(
+        pathOrUrl,
+        fit: fit,
+        loadingBuilder: (c, child, progress) {
+          if (progress == null) return child;
+          return Container(
+            color: Colors.black.withOpacity(0.04),
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        },
+        errorBuilder: (_, __, ___) =>
+            error ??
+            Container(
+              color: Colors.black.withOpacity(0.04),
+              alignment: Alignment.center,
+              child: const Icon(Icons.photo_outlined),
+            ),
+      );
+    }
+
+    return Image.file(
+      File(pathOrUrl),
+      fit: fit,
+      errorBuilder: (_, __, ___) =>
+          error ??
+          Container(
+            color: Colors.black.withOpacity(0.04),
+            alignment: Alignment.center,
+            child: const Icon(Icons.photo_outlined),
+          ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text("정말 삭제할까요?", style: TextStyle(fontWeight: FontWeight.w900)),
+          content: const Text("이 기록은 삭제하면 복구할 수 없어요."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("아니오"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text("예"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true) {
+      await RecordStore.delete(record.id);
+      Navigator.of(context).pop(); // 팝업 닫기
+    }
+  }
+
+  void _edit(BuildContext context) {
+    Navigator.of(context).pop();
+    Future.microtask(() {
+      openAddRecordSheet(context, record.movie, initialRecord: record);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,23 +128,14 @@ class MovieDiaryPopup extends StatelessWidget {
 
     final maxH = MediaQuery.of(context).size.height * 0.82;
 
-    // ✅ Typo 크레파스 폰트 패밀리 (pubspec family와 동일해야 함)
+    // ✅ Typo 크레파스 폰트 패밀리
     const f = 'TypoCrayon';
 
-    // ✅ 스타일 세트 (크레파스 느낌: 굵기+행간)
     const titleStyle = TextStyle(
       fontFamily: f,
       fontSize: 26,
       fontWeight: FontWeight.w800,
       height: 1.05,
-      color: ink,
-    );
-
-    const dateStyle = TextStyle(
-      fontFamily: f,
-      fontSize: 13,
-      fontWeight: FontWeight.w800,
-      height: 1.1,
       color: ink,
     );
 
@@ -77,19 +155,19 @@ class MovieDiaryPopup extends StatelessWidget {
       color: ink,
     );
 
+    const dateSmallStyle = TextStyle(
+      fontFamily: f,
+      fontSize: 13,
+      fontWeight: FontWeight.w800,
+      height: 1.1,
+      color: pencil,
+    );
+
     const detailStyle = TextStyle(
       fontFamily: f,
       fontSize: 15.5,
       fontWeight: FontWeight.w600,
       height: 1.55,
-      color: ink,
-    );
-
-    const closeStyle = TextStyle(
-      fontFamily: f,
-      fontSize: 16,
-      fontWeight: FontWeight.w800,
-      height: 1.1,
       color: ink,
     );
 
@@ -126,25 +204,24 @@ class MovieDiaryPopup extends StatelessWidget {
                   borderRadius: BorderRadius.circular(22),
                   child: Column(
                     children: [
-                      // 상단: 날짜 pill + X
+                      // ✅ 상단: (왼쪽) 수정/삭제 + (오른쪽) X
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
+                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
                         child: Row(
                           children: [
-                            const SizedBox(width: 40),
-                            Expanded(
-                              child: Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(color: pencil.withOpacity(0.7)),
-                                  ),
-                                  child: Text(_fmtDate(record.date), style: dateStyle),
-                                ),
-                              ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: "수정",
+                              onPressed: () => _edit(context),
+                              icon: const Icon(Icons.edit_outlined, color: ink),
                             ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: "삭제",
+                              onPressed: () => _confirmDelete(context),
+                              icon: const Icon(Icons.delete_outline, color: ink),
+                            ),
+                            const Spacer(),
                             IconButton(
                               visualDensity: VisualDensity.compact,
                               onPressed: () => Navigator.of(context).pop(),
@@ -165,19 +242,21 @@ class MovieDiaryPopup extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // 상단 정보 영역
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _Poster(
-                                    url: record.posterUrl,
+                                    url: record.movie.posterUrl,
                                     borderColor: pencil.withOpacity(0.75),
+                                    smartImage: _smartImage,
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(record.movieTitle, style: titleStyle),
+                                        Text(record.movie.title, style: titleStyle),
                                         const SizedBox(height: 8),
                                         _StarRow(
                                           rating: record.rating,
@@ -185,34 +264,30 @@ class MovieDiaryPopup extends StatelessWidget {
                                           emptyColor: pencil.withOpacity(0.45),
                                         ),
                                         const SizedBox(height: 10),
-
-                                        Text(record.oneLine, style: oneLineStyle),
+                                        Text(
+                                          (record.oneLiner ?? '').trim().isEmpty
+                                              ? '(한줄평 없음)'
+                                              : (record.oneLiner ?? '').trim(),
+                                          style: oneLineStyle,
+                                        ),
                                         const SizedBox(height: 12),
 
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 6,
-                                          children: [
-                                            ...record.tags.map(
-                                              (t) => _Chip(
-                                                text: "#$t",
+                                        // ✅ 태그만 (장르 없음)
+                                        if (record.tags.isNotEmpty)
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 6,
+                                            children: record.tags.map((t) {
+                                              final text = t.startsWith('#') ? t : "#$t";
+                                              return _Chip(
+                                                text: text,
                                                 bg: tagBg,
                                                 border: pencil.withOpacity(0.7),
                                                 fg: ink,
                                                 fontFamily: f,
-                                              ),
-                                            ),
-                                            ...record.genres.map(
-                                              (g) => _Chip(
-                                                text: g,
-                                                bg: Colors.white,
-                                                border: pencil.withOpacity(0.7),
-                                                fg: ink.withOpacity(0.9),
-                                                fontFamily: f,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                              );
+                                            }).toList(),
+                                          ),
                                       ],
                                     ),
                                   ),
@@ -221,6 +296,7 @@ class MovieDiaryPopup extends StatelessWidget {
 
                               const SizedBox(height: 20),
 
+                              // ✅ 오늘의 기록 + 날짜(옆에)
                               Row(
                                 children: [
                                   Container(
@@ -229,7 +305,14 @@ class MovieDiaryPopup extends StatelessWidget {
                                       color: highlight.withOpacity(0.75),
                                       borderRadius: BorderRadius.circular(14),
                                     ),
-                                    child: Text("오늘의 기록", style: sectionStyle),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text("오늘의 기록", style: sectionStyle),
+                                        const SizedBox(width: 10),
+                                        Text("· ${_fmtDate(record.watchDate)}", style: dateSmallStyle),
+                                      ],
+                                    ),
                                   ),
                                   const SizedBox(width: 8),
                                   Icon(Icons.menu_book_outlined, size: 18, color: ink.withOpacity(0.85)),
@@ -238,10 +321,11 @@ class MovieDiaryPopup extends StatelessWidget {
 
                               const SizedBox(height: 16),
 
-                              if (record.photos.isNotEmpty) ...[
+                              if (record.photoPaths.isNotEmpty) ...[
                                 _PhotoGrid(
-                                  photos: record.photos,
+                                  photos: record.photoPaths,
                                   borderColor: pencil.withOpacity(0.55),
+                                  smartImage: _smartImage,
                                 ),
                                 const SizedBox(height: 14),
                               ],
@@ -254,26 +338,15 @@ class MovieDiaryPopup extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(color: pencil.withOpacity(0.55)),
                                 ),
-                                child: Text(record.detail, style: detailStyle),
-                              ),
-
-                              const SizedBox(height: 18),
-
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: ink,
-                                    side: BorderSide(color: pencil.withOpacity(0.75)),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                  ),
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: Text("닫기", style: closeStyle),
+                                child: Text(
+                                  (record.detailedReview ?? '').trim().isEmpty
+                                      ? '(상세 후기 없음)'
+                                      : (record.detailedReview ?? '').trim(),
+                                  style: detailStyle,
                                 ),
                               ),
+
+                              const SizedBox(height: 10),
                             ],
                           ),
                         ),
@@ -293,7 +366,13 @@ class MovieDiaryPopup extends StatelessWidget {
 class _Poster extends StatelessWidget {
   final String url;
   final Color borderColor;
-  const _Poster({required this.url, required this.borderColor});
+  final Widget Function(String, {BoxFit fit, Widget? error}) smartImage;
+
+  const _Poster({
+    required this.url,
+    required this.borderColor,
+    required this.smartImage,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -305,22 +384,10 @@ class _Poster extends StatelessWidget {
         border: Border.all(color: borderColor, width: 1.1),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
+      child: smartImage(
         url,
         fit: BoxFit.cover,
-        loadingBuilder: (c, child, progress) {
-          if (progress == null) return child;
-          return Container(
-            color: Colors.black.withOpacity(0.04),
-            alignment: Alignment.center,
-            child: const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
-        },
-        errorBuilder: (_, __, ___) => Container(
+        error: Container(
           color: Colors.black.withOpacity(0.04),
           alignment: Alignment.center,
           child: const Icon(Icons.photo_outlined),
@@ -387,11 +454,9 @@ class _StarRow extends StatelessWidget {
 
     return Row(
       children: [
-        for (int i = 0; i < full; i++)
-          Icon(Icons.star_rounded, size: 22, color: color),
+        for (int i = 0; i < full; i++) Icon(Icons.star_rounded, size: 22, color: color),
         if (half) Icon(Icons.star_half_rounded, size: 22, color: color),
-        for (int i = 0; i < empty; i++)
-          Icon(Icons.star_outline_rounded, size: 22, color: emptyColor),
+        for (int i = 0; i < empty; i++) Icon(Icons.star_outline_rounded, size: 22, color: emptyColor),
       ],
     );
   }
@@ -400,10 +465,12 @@ class _StarRow extends StatelessWidget {
 class _PhotoGrid extends StatelessWidget {
   final List<String> photos;
   final Color borderColor;
+  final Widget Function(String, {BoxFit fit, Widget? error}) smartImage;
 
   const _PhotoGrid({
     required this.photos,
     required this.borderColor,
+    required this.smartImage,
   });
 
   @override
@@ -419,7 +486,7 @@ class _PhotoGrid extends StatelessWidget {
         childAspectRatio: 1.75,
       ),
       itemBuilder: (context, index) {
-        final url = photos[index];
+        final pathOrUrl = photos[index];
         return Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
@@ -427,22 +494,10 @@ class _PhotoGrid extends StatelessWidget {
             color: Colors.white,
           ),
           clipBehavior: Clip.antiAlias,
-          child: Image.network(
-            url,
+          child: smartImage(
+            pathOrUrl,
             fit: BoxFit.cover,
-            loadingBuilder: (c, child, progress) {
-              if (progress == null) return child;
-              return Container(
-                color: Colors.black.withOpacity(0.04),
-                alignment: Alignment.center,
-                child: const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              );
-            },
-            errorBuilder: (_, __, ___) => Container(
+            error: Container(
               color: Colors.black.withOpacity(0.04),
               alignment: Alignment.center,
               child: const Icon(Icons.photo_outlined),

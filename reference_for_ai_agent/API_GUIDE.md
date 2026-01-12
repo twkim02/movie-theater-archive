@@ -79,7 +79,7 @@
         "oneLiner": "압도적인 영상미, 역시 아바타 시리즈네요.",
         "detailedReview": "극장에서 보지 않으면 후회할 뻔했습니다. 전작보다 훨씬 화려해진 불의 부족 묘사가 인상적이었고, 3시간 넘는 러닝타임이 전혀 지루하지 않았습니다. 가족들과 함께 보기 정말 좋은 영화입니다.",
         "tags": ["가족", "극장"],
-        "photoUrl": "https://my-bucket.s3.amazonaws.com/review_img_101.jpg",
+        "photoPaths:": "https://my-bucket.s3.amazonaws.com/review_img_101.jpg",
         "movie": {
           "id": "83533",
           "title": "아바타: 불과 재",
@@ -105,7 +105,7 @@
   "oneLiner": "감동적이었다.",
   "detailedReview": "상세 리뷰 내용...",
   "tags": ["혼자", "극장"],
-  "photoUrl": "https://..." // 파일 업로드 API 호출 후 받은 URL
+  "photoPaths:": "https://..." // 파일 업로드 API 호출 후 받은 URL
 }
 ```
 
