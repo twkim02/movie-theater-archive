@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/root_screen.dart';
 import 'state/app_state.dart';
 import 'database/movie_database.dart';
 import 'services/movie_db_initializer.dart';
+import 'services/movie_initialization_service.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -31,14 +33,38 @@ class MyApp extends StatelessWidget {
       // DB 초기화 (테이블 생성)
       await MovieDatabase.database;
 
-      // 더미 데이터로 초기화 (DB가 비어있을 경우)
-      await MovieDbInitializer.initializeWithDummyData();
+      // 초기화 완료 플래그 확인
+      final prefs = await SharedPreferences.getInstance();
+      final isInitialized = prefs.getBool('movies_initialized_from_tmdb') ?? false;
+
+      if (!isInitialized) {
+        // 최초 실행: TMDb API로 영화 데이터 초기화
+        debugPrint('TMDb API로 영화 데이터 초기화 시작...');
+        try {
+          final savedCount = await MovieInitializationService.initializeMovies();
+          debugPrint('TMDb API 초기화 완료: $savedCount개 영화 저장됨');
+          
+          // 초기화 완료 플래그 저장
+          await prefs.setBool('movies_initialized_from_tmdb', true);
+        } catch (e) {
+          debugPrint('TMDb API 초기화 실패: $e');
+          // TMDb API 실패 시 더미 데이터로 폴백
+          await MovieDbInitializer.initializeWithDummyData();
+        }
+      } else {
+        // 이미 초기화됨: DB가 비어있을 경우에만 더미 데이터 사용
+        final hasMovies = await MovieDbInitializer.hasMovies();
+        if (!hasMovies) {
+          debugPrint('DB가 비어있어서 더미 데이터로 초기화...');
+          await MovieDbInitializer.initializeWithDummyData();
+        }
+      }
 
       // DB에서 영화 로드
       await appState.loadMoviesFromDatabase();
     } catch (e) {
       debugPrint('DB 초기화 실패: $e');
-      // 에러 발생 시에도 앱은 계속 실행 (더미 데이터 사용)
+      // 에러 발생 시에도 앱은 계속 실행
     }
   }
 }

@@ -8,6 +8,7 @@ import '../utils/env_loader.dart';
 import '../models/movie.dart';
 import '../repositories/movie_repository.dart';
 import '../services/movie_db_initializer.dart';
+import '../services/movie_initialization_service.dart';
 
 /// 개발/테스트용 화면
 /// 작성한 코드가 제대로 작동하는지 시각적으로 확인할 수 있습니다.
@@ -1346,6 +1347,53 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(height: 16),
 
+          // TMDb API로 초기화
+          Card(
+            color: Colors.green.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '2️⃣ TMDb API로 영화 초기화',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'TMDb API를 통해 현재 상영 중인 영화와 인기 영화를 가져와 DB에 저장합니다.\n'
+                    '이미 DB에 있는 영화는 스킵됩니다.',
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, 'TMDb API에서 영화 가져오는 중...\n시간이 걸릴 수 있습니다.');
+                      try {
+                        final count = await MovieInitializationService.initializeMovies();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        await appState.refreshMovies(); // 영화 리스트 새로고침
+                        _showSuccess(context, 'TMDb API 초기화 완료!\n$count개의 영화가 저장되었습니다.');
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.cloud_download),
+                    label: const Text('TMDb API로 초기화'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // DB에서 영화 조회
           Card(
             child: Padding(
@@ -1354,7 +1402,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '2️⃣ DB에서 영화 조회',
+                    '3️⃣ DB에서 영화 조회',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -1416,7 +1464,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '3️⃣ 영화 리스트 새로고침',
+                    '4️⃣ 영화 리스트 새로고침',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -1439,6 +1487,53 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                     },
                     icon: const Icon(Icons.refresh),
                     label: const Text('새로고침'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 러닝타임 업데이트
+          Card(
+            color: Colors.orange.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '5️⃣ 러닝타임 업데이트',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'DB에 저장된 영화 중 러닝타임이 0인 영화들의 상세 정보를 TMDb API에서 가져와서 업데이트합니다.\n'
+                    '시간이 걸릴 수 있습니다.',
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '러닝타임 업데이트 중...\n시간이 걸릴 수 있습니다.');
+                      try {
+                        final count = await MovieInitializationService.updateMovieRuntimes();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        await appState.refreshMovies(); // 영화 리스트 새로고침
+                        _showSuccess(context, '러닝타임 업데이트 완료!\n$count개의 영화가 업데이트되었습니다.');
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.update),
+                    label: const Text('러닝타임 업데이트'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ],
               ),
