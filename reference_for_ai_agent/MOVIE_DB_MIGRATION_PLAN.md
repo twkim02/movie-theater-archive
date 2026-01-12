@@ -15,7 +15,7 @@
    ↓
 4단계: 초기 데이터 저장 (현재 상영 중, 과거 명작)
    ↓
-5단계: 자동 갱신 시스템 (백그라운드 작업)
+5단계: 자동 갱신 시스템
 ```
 
 ---
@@ -40,9 +40,6 @@ dependencies:
   
   # 환경 변수 관리 (API 키)
   flutter_dotenv: ^5.1.0
-  
-  # 백그라운드 작업 (자동 갱신)
-  workmanager: ^0.5.2
 
 dev_dependencies:
   json_serializable: ^6.7.1
@@ -270,56 +267,15 @@ void main() async {
   - 날짜 기반으로 필터링 (예: 최근 7일)
   - DB에 없으면 추가
 
-### 5.2. WorkManager 설정
+### 5.2. 갱신 전략
 
-**작업 내용:**
-1. `workmanager` 패키지로 백그라운드 작업 설정
-2. 매일 새벽 (예: 02:00)에 자동 갱신 작업 실행
-3. 또는 앱 실행 시 마지막 갱신 시간 확인하고, 24시간 경과 시 갱신
-
-**구현 예시:**
-```dart
-// main.dart
-void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    if (task == "updateMovies") {
-      await MovieUpdateService.updateNowPlayingMovies();
-    }
-    return Future.value(true);
-  });
-}
-
-// 앱 초기화 시
-Workmanager().initialize(
-  callbackDispatcher,
-  isInDebugMode: false,
-);
-
-// 주기적 작업 등록
-Workmanager().registerPeriodicTask(
-  "movieUpdateTask",
-  "updateMovies",
-  frequency: Duration(hours: 24),
-  initialDelay: Duration(hours: 2),
-);
-```
-
-### 5.3. 갱신 전략
-
-**옵션 1: 완전 교체**
-- 현재 상영 영화를 전부 삭제하고 새로 가져오기
-- 장점: 간단함
-- 단점: 사용자가 북마크한 영화가 사라질 수 있음
-
-**옵션 2: 스마트 업데이트 (권장)**
+**스마트 업데이트 (권장)**
 - 새로 상영 중인 영화만 추가
 - 더 이상 상영 중이 아닌 영화는 `is_recent = 0`으로 변경
-- 장점: 데이터 손실 없음
-- 단점: 로직이 복잡함
-
-**권장 전략:**
 - `is_recent` 플래그를 업데이트만 하고 영화 데이터는 삭제하지 않음
 - 사용자가 북마크하거나 기록한 영화는 항상 유지
+- 장점: 데이터 손실 없음
+- 단점: 로직이 복잡함
 
 ---
 
@@ -356,8 +312,6 @@ Workmanager().registerPeriodicTask(
 ### 5단계 체크리스트
 - [ ] `MovieUpdateService` 클래스 생성
 - [ ] 갱신 로직 구현
-- [ ] `workmanager` 설정
-- [ ] 백그라운드 작업 등록
 - [ ] 갱신 테스트 (수동 및 자동)
 
 ---
@@ -393,7 +347,6 @@ Workmanager().registerPeriodicTask(
 
 - **TMDb API 문서**: https://developers.themoviedb.org/3
 - **sqflite 패키지**: https://pub.dev/packages/sqflite
-- **workmanager 패키지**: https://pub.dev/packages/workmanager
 - **http 패키지**: https://pub.dev/packages/http
 
 ---
