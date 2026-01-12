@@ -160,4 +160,91 @@ class TagRepository {
       await getOrCreateTag(tagName);
     }
   }
+
+  /// 태그 ID로 태그 이름을 조회합니다.
+  /// 
+  /// [tagId] 태그 ID
+  /// Returns 태그 이름 (없으면 null)
+  static Future<String?> getTagNameById(int tagId) async {
+    final db = await MovieDatabase.database;
+    final result = await db.query(
+      MovieDatabase.tableTags,
+      where: 'tag_id = ?',
+      whereArgs: [tagId],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+    return result.first['name'] as String;
+  }
+
+  /// 태그를 삭제합니다.
+  /// 
+  /// [tagName] 태그 이름
+  /// 주의: 기록에 사용 중인 태그는 삭제할 수 없습니다 (외래 키 제약).
+  static Future<bool> deleteTag(String tagName) async {
+    final db = await MovieDatabase.database;
+
+    // 태그 ID 조회
+    final tag = await db.query(
+      MovieDatabase.tableTags,
+      where: 'name = ?',
+      whereArgs: [tagName],
+      limit: 1,
+    );
+
+    if (tag.isEmpty) return false;
+
+    final tagId = tag.first['tag_id'] as int;
+
+    // 기록에 사용 중인지 확인
+    final recordTags = await db.query(
+      MovieDatabase.tableRecordTags,
+      where: 'tag_id = ?',
+      whereArgs: [tagId],
+      limit: 1,
+    );
+
+    if (recordTags.isNotEmpty) {
+      // 사용 중인 태그는 삭제할 수 없음
+      return false;
+    }
+
+    // 태그 삭제
+    await db.delete(
+      MovieDatabase.tableTags,
+      where: 'tag_id = ?',
+      whereArgs: [tagId],
+    );
+
+    return true;
+  }
+
+  /// 태그 사용 횟수를 반환합니다.
+  /// 
+  /// [tagName] 태그 이름
+  /// Returns 해당 태그를 사용한 기록 개수
+  static Future<int> getTagUsageCount(String tagName) async {
+    final db = await MovieDatabase.database;
+
+    // 태그 ID 조회
+    final tag = await db.query(
+      MovieDatabase.tableTags,
+      where: 'name = ?',
+      whereArgs: [tagName],
+      limit: 1,
+    );
+
+    if (tag.isEmpty) return 0;
+
+    final tagId = tag.first['tag_id'] as int;
+
+    // 사용 횟수 조회
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM ${MovieDatabase.tableRecordTags} WHERE tag_id = ?',
+      [tagId],
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
 }

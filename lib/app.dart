@@ -7,6 +7,7 @@ import 'database/movie_database.dart';
 import 'services/movie_db_initializer.dart';
 import 'services/movie_initialization_service.dart';
 import 'services/movie_update_service.dart';
+import 'services/user_initialization_service.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -33,6 +34,9 @@ class MyApp extends StatelessWidget {
     try {
       // DB 초기화 (테이블 생성)
       await MovieDatabase.database;
+
+      // 기본 사용자 및 태그 초기화
+      await UserInitializationService.initializeAll();
 
       // 초기화 완료 플래그 확인
       final prefs = await SharedPreferences.getInstance();

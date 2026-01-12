@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/movie.dart';
 import '../models/record.dart';
+import '../models/wishlist.dart';
 import '../repositories/tag_repository.dart';
 import 'dart:convert';
 
@@ -775,6 +776,209 @@ class MovieDatabase {
     }
 
     return records;
+  }
+
+  // ========== Wishlist 관련 메서드 ==========
+
+  /// 위시리스트에 영화를 추가합니다.
+  /// 
+  /// [userId] 사용자 ID
+  /// [movieId] 영화 ID
+  /// Returns 생성된 위시리스트 ID
+  static Future<int> insertWishlist(int userId, String movieId) async {
+    final db = await database;
+    
+    return await db.insert(
+      tableWishlist,
+      {
+        'user_id': userId,
+        'movie_id': movieId,
+        'saved_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore, // 이미 있으면 무시
+    );
+  }
+
+  /// 위시리스트에서 영화를 제거합니다.
+  /// 
+  /// [userId] 사용자 ID
+  /// [movieId] 영화 ID
+  static Future<void> deleteWishlist(int userId, String movieId) async {
+    final db = await database;
+    await db.delete(
+      tableWishlist,
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movieId],
+    );
+  }
+
+  /// 위시리스트에 영화가 있는지 확인합니다.
+  /// 
+  /// [userId] 사용자 ID
+  /// [movieId] 영화 ID
+  /// Returns 위시리스트에 있으면 true
+  static Future<bool> isInWishlist(int userId, String movieId) async {
+    final db = await database;
+    final result = await db.query(
+      tableWishlist,
+      where: 'user_id = ? AND movie_id = ?',
+      whereArgs: [userId, movieId],
+      limit: 1,
+    );
+    return result.isNotEmpty;
+  }
+
+  /// 사용자의 위시리스트를 조회합니다.
+  /// 
+  /// [userId] 사용자 ID
+  /// Returns WishlistItem 목록 (saved_at 기준 내림차순)
+  static Future<List<WishlistItem>> getWishlist(int userId) async {
+    final db = await database;
+    final maps = await db.query(
+      tableWishlist,
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'saved_at DESC',
+    );
+
+    final items = <WishlistItem>[];
+    for (final map in maps) {
+      final movieId = map['movie_id'] as String;
+      final movie = await getMovieById(movieId);
+      if (movie != null) {
+        final savedAt = DateTime.fromMillisecondsSinceEpoch(
+          map['saved_at'] as int,
+        );
+        items.add(WishlistItem(
+          movie: movie,
+          savedAt: savedAt,
+        ));
+      }
+    }
+
+    return items;
+  }
+
+  /// 사용자의 위시리스트 개수를 반환합니다.
+  /// 
+  /// [userId] 사용자 ID
+  /// Returns 위시리스트 개수
+  static Future<int> getWishlistCount(int userId) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM ${tableWishlist} WHERE user_id = ?',
+      [userId],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// 위시리스트의 모든 영화 ID를 반환합니다.
+  /// 
+  /// [userId] 사용자 ID
+  /// Returns 영화 ID 리스트
+  static Future<List<String>> getWishlistMovieIds(int userId) async {
+    final db = await database;
+    final maps = await db.query(
+      tableWishlist,
+      columns: ['movie_id'],
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+    return maps.map((map) => map['movie_id'] as String).toList();
+  }
+
+  // ========== User 관련 메서드 ==========
+
+  /// 사용자를 추가합니다.
+  /// 
+  /// [nickname] 닉네임
+  /// [email] 이메일 (선택)
+  /// Returns 생성된 사용자 ID
+  static Future<int> insertUser(String nickname, {String? email}) async {
+    final db = await database;
+    
+    return await db.insert(
+      tableUsers,
+      {
+        'nickname': nickname,
+        'email': email,
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
+
+  /// 사용자 ID로 사용자를 조회합니다.
+  /// 
+  /// [userId] 사용자 ID
+  /// Returns 사용자 정보 (없으면 null)
+  static Future<Map<String, dynamic>?> getUserById(int userId) async {
+    final db = await database;
+    final result = await db.query(
+      tableUsers,
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+    return result.first;
+  }
+
+  /// 기본 사용자(Guest)가 존재하는지 확인합니다.
+  /// 
+  /// Returns 기본 사용자가 있으면 true
+  static Future<bool> hasDefaultUser() async {
+    final db = await database;
+    final result = await db.query(
+      tableUsers,
+      where: 'user_id = ?',
+      whereArgs: [1],
+      limit: 1,
+    );
+    return result.isNotEmpty;
+  }
+
+  /// 기본 사용자(Guest)를 생성합니다.
+  /// 
+  /// 이미 존재하면 생성하지 않습니다.
+  /// Returns 사용자 ID (항상 1)
+  static Future<int> createDefaultUser() async {
+    // 이미 존재하는지 확인
+    final exists = await hasDefaultUser();
+    if (exists) return 1;
+
+    // 기본 사용자 생성 (명시적으로 user_id = 1로 설정)
+    final db = await database;
+    
+    // AUTOINCREMENT를 사용하더라도 명시적으로 1을 설정하려면 rawInsert 사용
+    try {
+      await db.rawInsert(
+        'INSERT INTO ${tableUsers} (user_id, nickname, email, created_at) VALUES (?, ?, ?, ?)',
+        [1, 'Guest', null, DateTime.now().millisecondsSinceEpoch],
+      );
+      return 1;
+    } catch (e) {
+      // 이미 존재하거나 다른 에러 발생 시 일반 insert 시도
+      final userId = await db.insert(
+        tableUsers,
+        {
+          'nickname': 'Guest',
+          'email': null,
+          'created_at': DateTime.now().millisecondsSinceEpoch,
+        },
+      );
+      // 첫 번째 레코드는 보통 1이지만, 확실하게 하기 위해 확인
+      if (userId == 1) {
+        return 1;
+      }
+      // 만약 1이 아니면 삭제하고 다시 1로 생성
+      await db.delete(tableUsers, where: 'user_id = ?', whereArgs: [userId]);
+      await db.rawInsert(
+        'INSERT INTO ${tableUsers} (user_id, nickname, email, created_at) VALUES (?, ?, ?, ?)',
+        [1, 'Guest', null, DateTime.now().millisecondsSinceEpoch],
+      );
+      return 1;
+    }
   }
 
   /// 데이터베이스를 닫습니다.
