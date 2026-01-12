@@ -26,13 +26,30 @@ movie-theater-archive/
 │   │   └── taste_screen.dart    # 취향 탭 (통계 및 추천)
 │   ├── widgets/                  # 재사용 가능한 위젯
 │   │   └── add_record_sheet.dart # 기록 추가 바텀 시트
-│   ├── data/                     # 데이터 관리 및 저장소
-│   │   ├── dummy_movies.dart    # 더미 영화 데이터
-│   │   ├── dummy_record.dart    # 더미 기록 데이터
-│   │   ├── dummy_wishlist.dart # 더미 위시리스트 데이터
+│   ├── data/                     # 더미 데이터 및 레거시 저장소
+│   │   ├── dummy_movies.dart    # 더미 영화 데이터 (테스트용)
+│   │   ├── dummy_record.dart    # 더미 기록 데이터 (테스트용)
+│   │   ├── dummy_wishlist.dart # 더미 위시리스트 데이터 (테스트용)
 │   │   ├── dummy_summary.dart  # 더미 통계 데이터
-│   │   ├── record_store.dart   # 기록 저장소 (ValueNotifier)
-│   │   └── saved_store.dart    # 저장된 영화 ID 저장소
+│   │   ├── record_store.dart   # 기록 저장소 (@Deprecated)
+│   │   └── saved_store.dart    # 저장된 영화 ID 저장소 (@Deprecated)
+│   ├── database/                 # 데이터베이스 레이어
+│   │   └── movie_database.dart  # SQLite 데이터베이스 헬퍼 클래스
+│   ├── repositories/             # Repository 패턴 구현
+│   │   ├── movie_repository.dart      # 영화 데이터 Repository
+│   │   ├── record_repository.dart     # 기록 데이터 Repository
+│   │   ├── wishlist_repository.dart   # 위시리스트 데이터 Repository
+│   │   └── tag_repository.dart        # 태그 데이터 Repository
+│   ├── services/                 # 비즈니스 로직 서비스
+│   │   ├── movie_initialization_service.dart  # 영화 초기화 서비스
+│   │   ├── movie_update_service.dart          # 영화 갱신 서비스
+│   │   ├── movie_db_initializer.dart          # 더미 데이터 초기화
+│   │   └── user_initialization_service.dart   # 사용자 초기화 서비스
+│   ├── api/                      # 외부 API 클라이언트
+│   │   ├── tmdb_client.dart     # TMDb API 클라이언트
+│   │   └── tmdb_mapper.dart     # TMDb API 응답 매퍼
+│   ├── utils/                    # 유틸리티
+│   │   └── env_loader.dart      # 환경 변수 로더
 │   ├── state/                    # 전역 상태 관리
 │   │   └── app_state.dart      # AppState (Provider 기반)
 │   └── theme/                    # 테마 및 스타일
@@ -40,7 +57,11 @@ movie-theater-archive/
 ├── test/                         # 단위 테스트 및 통합 테스트
 │   ├── data/                    # 데이터 레이어 테스트
 │   ├── models/                  # 모델 테스트
-│   └── state/                   # 상태 관리 테스트
+│   ├── state/                   # 상태 관리 테스트
+│   ├── database/                # 데이터베이스 테스트
+│   ├── repositories/            # Repository 테스트
+│   ├── services/                # 서비스 테스트
+│   └── integration/             # 통합 테스트
 ├── android/                      # Android 플랫폼 설정
 ├── ios/                          # iOS 플랫폼 설정
 ├── windows/                      # Windows 플랫폼 설정
@@ -55,6 +76,8 @@ movie-theater-archive/
 │   ├── API_GUIDE.md            # API 명세서
 │   ├── DB_SCHEMA.md            # 데이터베이스 스키마
 │   ├── FUNCTIONAL_SPEC.md      # 기능 명세서
+│   ├── MOVIE_DB_MIGRATION_PLAN.md    # 영화 DB 마이그레이션 계획
+│   ├── RECORD_WISHLIST_DB_MIGRATION_PLAN.md  # 기록/위시리스트 DB 마이그레이션 계획
 │   └── PROJECT_SPEC.md        # 프로젝트 상세 명세서 (본 문서)
 ├── pubspec.yaml                  # Flutter 프로젝트 의존성 및 설정
 ├── analysis_options.yaml         # Dart 분석 옵션
@@ -68,10 +91,14 @@ movie-theater-archive/
 | `lib/models/` | 데이터 모델 정의 | 영화, 기록, 위시리스트, 통계 모델 클래스 및 JSON 직렬화/역직렬화 |
 | `lib/screens/` | 화면 위젯 | 4개 탭 화면 (탐색, 일기, 저장, 취향) 및 루트 화면 |
 | `lib/widgets/` | 재사용 위젯 | 기록 추가 바텀 시트 등 공통 UI 컴포넌트 |
-| `lib/data/` | 데이터 레이어 | 더미 데이터 제공 및 메모리 기반 저장소 (RecordStore, SavedStore) |
+| `lib/data/` | 더미 데이터 및 레거시 | 더미 데이터 제공 (테스트용), 레거시 저장소 (@Deprecated) |
+| `lib/database/` | 데이터베이스 레이어 | SQLite 데이터베이스 헬퍼 클래스 (MovieDatabase) |
+| `lib/repositories/` | Repository 패턴 | 데이터 접근 로직 추상화 (Movie, Record, Wishlist, Tag) |
+| `lib/services/` | 비즈니스 로직 | 초기화, 갱신, 데이터 마이그레이션 서비스 |
+| `lib/api/` | 외부 API 클라이언트 | TMDb API 연동 및 데이터 변환 |
 | `lib/state/` | 상태 관리 | Provider 기반 전역 상태 관리 (AppState) |
 | `lib/theme/` | 테마 설정 | 색상, 폰트 등 UI 테마 상수 |
-| `test/` | 테스트 코드 | 단위 테스트 및 통합 테스트 |
+| `test/` | 테스트 코드 | 단위 테스트, 통합 테스트, 영속성 테스트 |
 | `reference_for_ai_agent/` | 참조 문서 | API 명세, DB 스키마, 기능 명세 등 개발 가이드 |
 
 ---
@@ -93,7 +120,7 @@ movie-theater-archive/
 - **영화 액션**
   - **일기 쓰기 버튼**: 기록 추가 바텀 시트 열기
   - **영화관 보기 버튼**: 최근 상영 영화에만 표시 (현재 스낵바로 구현)
-  - **북마크 토글**: 위시리스트 추가/제거 (SavedStore 사용)
+  - **북마크 토글**: 위시리스트 추가/제거 (DB에 저장)
 
 ### 2.2. 일기 탭 (Diary Screen)
 
@@ -110,9 +137,10 @@ movie-theater-archive/
   - **많이 본 순**: 같은 영화를 여러 번 본 경우 그룹화하여 표시 (평균 별점, 관람 횟수 표시)
 - **필터링**
   - **기간 설정**: YYYYMMDD 형식으로 시작일/종료일 입력
-  - **검색**: 제목, 한줄평으로 검색
+  - **검색**: 제목, 한줄평, 태그로 검색
 - **기록 추가**
   - 탐색 탭의 "일기 쓰기" 버튼 또는 취향 탭의 추천 영화에서 기록 추가 가능
+  - DB에 저장되어 앱 종료 후에도 유지
 
 ### 2.3. 저장 탭 (Saved Screen)
 
@@ -123,6 +151,7 @@ movie-theater-archive/
   - 3열 그리드 뷰로 저장된 영화 목록 표시
   - 각 카드에 포스터, 제목, 평점 표시
   - 북마크 아이콘으로 저장 해제 가능
+  - DB에 저장되어 앱 종료 후에도 유지
 - **검색**
   - 저장된 영화 제목으로 검색
 
@@ -152,15 +181,16 @@ movie-theater-archive/
 #### 입력 필드
 - **관람일** (필수): 날짜 선택기로 선택
 - **별점** (필수): 0.5 단위로 0.5~5.0점 입력 (별 5개 터치 입력)
-- **태그** (선택): "혼자", "친구", "가족", "극장", "OTT" 중 다중 선택
+- **태그** (선택): "혼자", "친구", "가족", "극장", "OTT" 중 다중 선택 (기본 태그 자동 생성)
 - **한줄평** (선택): 최대 20자 한 줄 입력
 - **사진** (선택): 업로드 기능 (현재 스낵바로 구현)
 - **후기** (선택): 여러 줄 상세 리뷰 입력
 
 #### 저장 로직
 - 별점이 0.0 이하일 경우 에러 메시지 표시
-- RecordStore에 기록 추가 (메모리 기반)
-- 저장 후 바텀 시트 닫기
+- `AppState.addRecord()`를 통해 DB에 저장
+- 태그는 자동으로 DB에 생성 및 매핑
+- 저장 후 바텀 시트 닫기 및 UI 자동 업데이트
 
 ---
 
@@ -174,7 +204,7 @@ movie-theater-archive/
 
 | 필드명 | 타입 | 설명 | 필수 |
 |--------|------|------|------|
-| `id` | `String` | 영화 고유 ID (API 기준) | ✅ |
+| `id` | `String` | 영화 고유 ID (TMDb API 기준) | ✅ |
 | `title` | `String` | 영화 제목 | ✅ |
 | `posterUrl` | `String` | 포스터 이미지 URL | ✅ |
 | `genres` | `List<String>` | 장르 목록 | ✅ |
@@ -272,60 +302,140 @@ movie-theater-archive/
 | `date` | `String` | 날짜 (YYYY 또는 YYYY-MM) |
 | `count` | `int` | 해당 기간에 본 영화 수 |
 
-### 3.2. 데이터베이스 스키마 (참조)
+### 3.2. 데이터베이스 스키마
 
 **참조 문서:** `reference_for_ai_agent/DB_SCHEMA.md`
 
-프로젝트는 향후 Android Room Database로 마이그레이션을 고려한 스키마를 설계했습니다. 현재는 Flutter 앱에서 메모리 기반 저장소를 사용하고 있으며, DB 스키마는 백엔드 연동 시 참조용으로 정의되어 있습니다.
+프로젝트는 **SQLite 데이터베이스**를 사용하여 로컬 데이터를 영구 저장합니다. 모든 데이터는 앱 종료 후에도 유지됩니다.
 
 #### 주요 테이블 구조
 
 | 테이블명 | 주요 컬럼 | 설명 |
 |---------|----------|------|
-| `Users` | `user_id`, `nickname`, `email`, `created_at` | 사용자 정보 |
-| `Movies` | `movie_id`, `title`, `poster_url`, `release_date`, `runtime`, `vote_average` | 영화 정보 (API 캐싱) |
-| `Records` | `record_id`, `user_id`, `movie_id`, `rating`, `watch_date`, `one_liner`, `detailed_review`, `photo_path`, `created_at` | 관람 기록 |
-| `Wishlist` | `id`, `user_id`, `movie_id`, `saved_at` | 위시리스트 |
-| `Genres` | `genre_id`, `name` | 장르 마스터 |
-| `Movie_Genres` | `id`, `movie_id`, `genre_id` | 영화-장르 매핑 (N:M) |
-| `Tags` | `tag_id`, `name` | 태그 마스터 |
-| `Record_Tags` | `id`, `record_id`, `tag_id` | 기록-태그 매핑 (N:M) |
+| `users` | `user_id`, `nickname`, `email`, `created_at` | 사용자 정보 |
+| `movies` | `id`, `title`, `poster_url`, `release_date`, `runtime`, `vote_average`, `is_recent`, `genres`, `last_updated` | 영화 정보 (TMDb API 캐싱) |
+| `records` | `record_id`, `user_id`, `movie_id`, `rating`, `watch_date`, `one_liner`, `detailed_review`, `photo_path`, `created_at` | 관람 기록 |
+| `wishlist` | `id`, `user_id`, `movie_id`, `saved_at` | 위시리스트 |
+| `tags` | `tag_id`, `name` | 태그 마스터 |
+| `record_tags` | `id`, `record_id`, `tag_id` | 기록-태그 매핑 (N:M) |
+
+#### 데이터베이스 버전 관리
+- **현재 버전**: 2
+- **버전 1**: `movies` 테이블만 존재
+- **버전 2**: `users`, `records`, `tags`, `record_tags`, `wishlist` 테이블 추가
+
+#### 외래 키 제약
+- `records.user_id` → `users.user_id` (ON DELETE CASCADE)
+- `records.movie_id` → `movies.id` (ON DELETE CASCADE)
+- `wishlist.user_id` → `users.user_id` (ON DELETE CASCADE)
+- `wishlist.movie_id` → `movies.id` (ON DELETE CASCADE)
+- `record_tags.record_id` → `records.record_id` (ON DELETE CASCADE)
+- `record_tags.tag_id` → `tags.tag_id` (ON DELETE CASCADE)
 
 ### 3.3. 현재 데이터 저장 방식
 
-#### 3.3.1. RecordStore
+#### 3.3.1. MovieDatabase (`lib/database/movie_database.dart`)
 
-**파일:** `lib/data/record_store.dart`
+**역할**: SQLite 데이터베이스 헬퍼 클래스
 
-- **타입**: `ValueNotifier<List<Record>>`
-- **용도**: 관람 기록을 메모리에 저장
-- **메서드**:
-  - `add(Record)`: 기록 추가 (최신이 위로)
-  - `nextId()`: 다음 ID 생성
+**주요 기능:**
+- DB 초기화 및 버전 관리
+- 테이블 생성 및 마이그레이션
+- CRUD 메서드 (영화, 기록, 위시리스트, 태그, 사용자)
+- 데이터 변환 (Dart 모델 ↔ DB Map)
+- 검색 및 필터링
 
-#### 3.3.2. SavedStore
+**주요 메서드:**
+- `database`: 싱글톤 DB 인스턴스 접근
+- `insertMovie()`, `updateMovie()`, `getMovieById()`, `getAllMovies()`
+- `insertRecord()`, `updateRecord()`, `getRecordById()`, `getRecordsByUserId()`
+- `insertWishlist()`, `deleteWishlist()`, `getWishlist()`
+- `insertTag()`, `getTagsByRecordId()`, `setTagsForRecord()`
+- `insertUser()`, `getUserById()`, `createDefaultUser()`
 
-**파일:** `lib/data/saved_store.dart`
+#### 3.3.2. Repository 패턴
 
-- **타입**: `ValueNotifier<Set<String>>`
-- **용도**: 저장된 영화 ID만 저장 (가벼운 구조)
-- **메서드**:
-  - `isSaved(String movieId)`: 저장 여부 확인
-  - `toggle(String movieId)`: 저장 상태 토글
-  - `remove(String movieId)`: 저장 해제
-  - `clear()`: 전체 초기화
+**역할**: 데이터 접근 로직을 비즈니스 로직에서 분리
 
-#### 3.3.3. AppState
+**Repository 클래스:**
 
-**파일:** `lib/state/app_state.dart`
+1. **MovieRepository** (`lib/repositories/movie_repository.dart`)
+   - 영화 데이터 CRUD
+   - 검색 및 필터링
+   - TMDb API 연동 지원
 
-- **타입**: `ChangeNotifier` (Provider 패턴)
-- **용도**: 전역 상태 관리
-- **주요 상태**:
-  - 북마크된 영화 ID 목록
-  - 기록 정렬/필터 옵션
-  - 위시리스트 아이템 목록
-  - 통계 데이터
+2. **RecordRepository** (`lib/repositories/record_repository.dart`)
+   - 기록 데이터 CRUD
+   - 태그 매핑 처리
+   - 검색 및 필터링
+
+3. **WishlistRepository** (`lib/repositories/wishlist_repository.dart`)
+   - 위시리스트 추가/제거
+   - 정렬 및 필터링
+   - Movie 객체 조회
+
+4. **TagRepository** (`lib/repositories/tag_repository.dart`)
+   - 태그 생성 및 조회
+   - 기록-태그 매핑 관리
+   - 기본 태그 초기화
+
+#### 3.3.3. 서비스 레이어
+
+**역할**: 비즈니스 로직 및 초기화 처리
+
+**서비스 클래스:**
+
+1. **MovieInitializationService** (`lib/services/movie_initialization_service.dart`)
+   - TMDb API로 영화 데이터 초기화
+   - 현재 상영 중인 영화 및 인기 영화 가져오기
+
+2. **MovieUpdateService** (`lib/services/movie_update_service.dart`)
+   - 현재 상영 중인 영화 자동 갱신
+   - 24시간 주기 갱신 체크
+
+3. **UserInitializationService** (`lib/services/user_initialization_service.dart`)
+   - 기본 사용자(Guest) 생성
+   - 기본 태그 초기화
+
+4. **MovieDbInitializer** (`lib/services/movie_db_initializer.dart`)
+   - 더미 데이터를 DB에 저장
+   - 테스트 및 개발용
+
+#### 3.3.4. AppState (`lib/state/app_state.dart`)
+
+**타입**: `ChangeNotifier` (Provider 패턴)
+
+**역할**: 전역 상태 관리 및 UI와 Repository 간 브릿지
+
+**주요 상태:**
+- 영화 리스트 캐시 (DB에서 로드)
+- 기록 리스트 캐시 (DB에서 로드)
+- 위시리스트 캐시 (DB에서 로드)
+- 북마크 상태 캐시 (위시리스트 기반)
+- 기록 정렬/필터 옵션
+- 로딩 상태
+
+**주요 메서드:**
+- `loadMoviesFromDatabase()`: DB에서 영화 로드
+- `loadRecordsFromDatabase()`: DB에서 기록 로드
+- `loadWishlistFromDatabase()`: DB에서 위시리스트 로드
+- `addRecord(Record)`: 기록 추가 (DB 저장)
+- `updateRecord(Record)`: 기록 수정 (DB 업데이트)
+- `deleteRecord(int)`: 기록 삭제 (DB 삭제)
+- `addToWishlist(Movie)`: 위시리스트 추가 (DB 저장)
+- `removeFromWishlist(String)`: 위시리스트 제거 (DB 삭제)
+- `toggleBookmark(String)`: 북마크 토글 (DB 저장)
+- `setRecordSortOption()`, `setRecordDateFilter()`, `setRecordSearchQuery()`: 필터/정렬 설정
+
+#### 3.3.5. 레거시 저장소 (@Deprecated)
+
+**RecordStore** (`lib/data/record_store.dart`)
+- **상태**: `@Deprecated` - 더 이상 사용하지 않음
+- **대체**: `AppState.addRecord()` 및 `RecordRepository` 사용
+
+**SavedStore** (`lib/data/saved_store.dart`)
+- **상태**: `@Deprecated` - 더 이상 사용하지 않음
+- **대체**: `AppState.toggleBookmark()` 및 `WishlistRepository` 사용
 
 ---
 
@@ -340,6 +450,11 @@ movie-theater-archive/
 | `flutter` | SDK | Flutter 프레임워크 |
 | `cupertino_icons` | ^1.0.8 | iOS 스타일 아이콘 |
 | `provider` | ^6.1.5+1 | 상태 관리 (Provider 패턴) |
+| `sqflite` | ^2.3.0 | SQLite 데이터베이스 |
+| `path` | ^1.8.3 | 파일 경로 처리 |
+| `http` | ^1.1.0 | HTTP 통신 (TMDb API) |
+| `flutter_dotenv` | ^5.1.0 | 환경 변수 관리 (API 키) |
+| `shared_preferences` | ^2.2.2 | 초기화 플래그 저장 |
 
 ### 4.2. 개발 의존성
 
@@ -347,6 +462,7 @@ movie-theater-archive/
 |---------|------|------|
 | `flutter_test` | SDK | Flutter 테스트 프레임워크 |
 | `flutter_lints` | ^6.0.0 | Dart/Flutter 린트 규칙 |
+| `sqflite_common_ffi` | ^2.3.0 | 테스트용 SQLite (FFI) |
 
 ### 4.3. 패키지 상세 설명
 
@@ -370,11 +486,31 @@ final appState = context.watch<AppState>();
 final records = appState.records;
 ```
 
-#### 4.3.2. flutter_lints (^6.0.0)
+#### 4.3.2. sqflite (^2.3.0)
 
 **용도:**
-- Dart/Flutter 코드 품질 검사
-- `analysis_options.yaml`에서 활성화된 린트 규칙에 따라 코드 스타일 및 잠재적 오류 검사
+- SQLite 데이터베이스 연동
+- 로컬 데이터 영구 저장
+- 트랜잭션 및 외래 키 제약 지원
+
+#### 4.3.3. http (^1.1.0)
+
+**용도:**
+- TMDb API와의 HTTP 통신
+- 영화 데이터 가져오기 및 갱신
+
+#### 4.3.4. flutter_dotenv (^5.1.0)
+
+**용도:**
+- 환경 변수 관리
+- TMDb API 키 보안 저장
+- `env.json` 파일에서 로드
+
+#### 4.3.5. shared_preferences (^2.2.2)
+
+**용도:**
+- 초기화 완료 플래그 저장
+- 앱 설정 저장
 
 ---
 
@@ -382,11 +518,13 @@ final records = appState.records;
 
 ### 5.1. 아키텍처 패턴
 
-프로젝트는 **Provider 패턴**을 기반으로 한 상태 관리를 사용합니다.
+프로젝트는 **Repository 패턴**과 **Provider 패턴**을 결합한 아키텍처를 사용합니다.
 
 - **전역 상태**: `AppState` (Provider)
 - **로컬 상태**: 각 화면의 `StatefulWidget` 내부 상태
-- **데이터 저장소**: `RecordStore`, `SavedStore` (ValueNotifier)
+- **데이터 저장소**: SQLite 데이터베이스 (MovieDatabase)
+- **데이터 접근**: Repository 패턴 (MovieRepository, RecordRepository, WishlistRepository, TagRepository)
+- **비즈니스 로직**: Service 레이어 (Initialization, Update)
 
 ### 5.2. 데이터 흐름
 
@@ -394,8 +532,12 @@ final records = appState.records;
 UI (Screens/Widgets)
     ↓ (구독)
 AppState (Provider)
-    ↓ (참조)
-Dummy Data / RecordStore / SavedStore
+    ↓ (호출)
+Repository (MovieRepository, RecordRepository, etc.)
+    ↓ (접근)
+MovieDatabase (SQLite)
+    ↓ (저장)
+로컬 DB 파일
 ```
 
 ### 5.3. 주요 상태 관리 클래스
@@ -403,19 +545,43 @@ Dummy Data / RecordStore / SavedStore
 #### AppState (`lib/state/app_state.dart`)
 
 **주요 기능:**
-- 영화 목록 관리 (더미 데이터)
-- 북마크 관리
-- 기록 목록 관리 (필터, 정렬, 검색)
-- 위시리스트 관리
+- 영화 목록 관리 (DB에서 로드)
+- 북마크 관리 (위시리스트 기반)
+- 기록 목록 관리 (DB에서 로드, 필터, 정렬, 검색)
+- 위시리스트 관리 (DB에서 로드)
 - 통계 데이터 제공
+- 로딩 상태 관리
 
 **주요 메서드:**
-- `toggleBookmark(String movieId)`: 북마크 토글
+- `loadMoviesFromDatabase()`: DB에서 영화 로드
+- `loadRecordsFromDatabase()`: DB에서 기록 로드
+- `loadWishlistFromDatabase()`: DB에서 위시리스트 로드
+- `addRecord(Record)`: 기록 추가 (DB 저장)
+- `updateRecord(Record)`: 기록 수정 (DB 업데이트)
+- `deleteRecord(int)`: 기록 삭제 (DB 삭제)
+- `addToWishlist(Movie)`: 위시리스트 추가 (DB 저장)
+- `removeFromWishlist(String)`: 위시리스트 제거 (DB 삭제)
+- `toggleBookmark(String)`: 북마크 토글 (DB 저장)
 - `setRecordSortOption(RecordSortOption)`: 기록 정렬 옵션 설정
 - `setRecordDateFilter(DateTime?, DateTime?)`: 기록 기간 필터 설정
 - `setRecordSearchQuery(String)`: 기록 검색어 설정
-- `addToWishlist(Movie)`: 위시리스트 추가
-- `removeFromWishlist(String movieId)`: 위시리스트 제거
+
+### 5.4. Repository 패턴
+
+**장점:**
+- 데이터 접근 로직과 비즈니스 로직 분리
+- 테스트 용이성
+- 데이터 소스 변경 시 유연성 (예: DB → API)
+- 코드 재사용성
+
+**Repository 구조:**
+```
+Repository (인터페이스 역할)
+    ↓
+MovieDatabase (구현)
+    ↓
+SQLite
+```
 
 ---
 
@@ -441,40 +607,77 @@ Dummy Data / RecordStore / SavedStore
 
 ---
 
-## 7. 향후 확장 계획
+## 7. 데이터 영속성
 
-### 7.1. 데이터베이스 연동
+### 7.1. 현재 구현 상태
 
-- 현재 메모리 기반 저장소를 Android Room Database로 마이그레이션
-- 로컬 데이터 영구 저장 및 오프라인 지원
+✅ **완료된 항목:**
+- SQLite 데이터베이스 연동 완료
+- 모든 데이터 (영화, 기록, 위시리스트, 태그, 사용자) DB 저장
+- 앱 종료 후 재시작 시 데이터 유지 확인
+- 외래 키 제약 및 CASCADE 삭제 구현
+- 데이터 무결성 보장
 
-### 7.2. 백엔드 API 연동
+### 7.2. 데이터 초기화
+
+**앱 최초 실행 시:**
+1. DB 초기화 (테이블 생성)
+2. 기본 사용자(Guest) 생성
+3. 기본 태그 초기화 ("혼자", "친구", "가족", "극장", "OTT")
+4. TMDb API로 영화 데이터 초기화 (또는 더미 데이터)
+
+**앱 재시작 시:**
+1. DB에서 데이터 자동 로드
+2. 24시간 경과 시 현재 상영 중인 영화 자동 갱신
+
+### 7.3. 데이터 마이그레이션
+
+- **DB 버전 관리**: `_databaseVersion`으로 관리
+- **마이그레이션**: `_onUpgrade()` 메서드에서 처리
+- **안전한 업그레이드**: 기존 데이터 보존하며 새 테이블 추가
+
+---
+
+## 8. 향후 확장 계획
+
+### 8.1. 백엔드 API 연동
 
 - REST API를 통한 서버 연동 (참조: `reference_for_ai_agent/API_GUIDE.md`)
 - Firebase 또는 자체 백엔드 서버 연동
+- 데이터 동기화 (클라우드 백업)
 
-### 7.3. 이미지 처리
+### 8.2. 이미지 처리
 
 - 포스터 이미지 로컬 캐싱
 - 사용자 업로드 사진 처리 (갤러리 접근, Firebase Storage 업로드)
 
-### 7.4. 기능 확장
+### 8.3. 기능 확장
 
-- 기록 수정/삭제 기능
+- 기록 수정/삭제 기능 (UI 구현)
 - 상영관 정보 연동
 - 소셜 기능 (기록 공유 등)
+- 다중 사용자 지원
+
+### 8.4. 성능 최적화
+
+- 대량 데이터 조회 시 페이지네이션
+- 이미지 로딩 최적화
+- DB 쿼리 최적화
 
 ---
 
-## 8. 참고 문서
+## 9. 참고 문서
 
 - **API 명세서**: `reference_for_ai_agent/API_GUIDE.md`
 - **DB 스키마**: `reference_for_ai_agent/DB_SCHEMA.md`
 - **기능 명세서**: `reference_for_ai_agent/FUNCTIONAL_SPEC.md`
+- **영화 DB 마이그레이션 계획**: `reference_for_ai_agent/MOVIE_DB_MIGRATION_PLAN.md`
+- **기록/위시리스트 DB 마이그레이션 계획**: `reference_for_ai_agent/RECORD_WISHLIST_DB_MIGRATION_PLAN.md`
 - **테스트 가이드**: `docs/TESTING_GUIDE.md`
 
 ---
 
 **문서 작성일**: 2026년 1월  
+**최종 업데이트**: 2026년 1월 (DB 마이그레이션 완료 반영)  
 **프로젝트 버전**: 1.0.0+1  
 **Flutter SDK**: ^3.10.7
