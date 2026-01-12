@@ -3,7 +3,6 @@ import '../models/movie.dart';
 import '../models/record.dart';
 import '../models/wishlist.dart';
 import '../models/summary.dart';
-import '../data/dummy_movies.dart';
 import '../data/dummy_record.dart';
 import '../data/dummy_wishlist.dart';
 import '../data/dummy_summary.dart';
@@ -45,30 +44,45 @@ class AppState extends ChangeNotifier {
   // 영화 리스트 캐시 (DB에서 로드한 데이터)
   List<Movie> _movies = [];
   bool _moviesLoaded = false;
+  bool _isLoadingMovies = false;
+
+  /// 영화 로드 상태를 반환합니다.
+  bool get isMoviesLoaded => _moviesLoaded;
+
+  /// 영화 로딩 중인지 반환합니다.
+  bool get isLoadingMovies => _isLoadingMovies;
 
   /// 모든 영화 리스트를 반환합니다.
-  /// DB에서 로드한 데이터를 반환하며, 아직 로드되지 않았으면 더미 데이터를 반환합니다.
+  /// DB에서 로드한 데이터를 반환합니다.
+  /// DB가 비어있거나 로드되지 않았으면 빈 리스트를 반환합니다.
   List<Movie> get movies {
-    if (_moviesLoaded && _movies.isNotEmpty) {
+    if (_moviesLoaded) {
       return _movies;
     }
-    // DB가 아직 로드되지 않았으면 더미 데이터 반환 (fallback)
-    return DummyMovies.getMovies();
+    // DB가 아직 로드되지 않았으면 빈 리스트 반환
+    // (더미 데이터는 자동으로 보여주지 않음)
+    return [];
   }
 
   /// 영화 리스트를 DB에서 로드합니다.
   /// 
   /// 앱 시작 시 한 번 호출하여 DB에서 영화 데이터를 로드합니다.
   Future<void> loadMoviesFromDatabase() async {
+    if (_isLoadingMovies) return; // 이미 로딩 중이면 스킵
+    
+    _isLoadingMovies = true;
+    notifyListeners();
+    
     try {
       _movies = await MovieRepository.getAllMovies();
       _moviesLoaded = true;
-      notifyListeners();
     } catch (e) {
       debugPrint('영화 로드 실패: $e');
-      // 에러 발생 시 더미 데이터 사용
-      _movies = DummyMovies.getMovies();
+      _movies = [];
       _moviesLoaded = false;
+    } finally {
+      _isLoadingMovies = false;
+      notifyListeners();
     }
   }
 

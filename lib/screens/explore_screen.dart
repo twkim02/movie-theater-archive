@@ -5,6 +5,7 @@ import '../models/movie.dart';
 import '../widgets/add_record_sheet.dart';
 import '../data/saved_store.dart';
 import '../state/app_state.dart';
+import '../services/movie_db_initializer.dart';
 import 'test_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -30,6 +31,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
+  void _showLoading(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(message),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<Movie> _applySearch(List<Movie> movies) {
     final q = _query.trim();
     if (q.isEmpty) return movies;
@@ -40,8 +58,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final allMoviesList = appState.movies;
+    final isMoviesLoaded = appState.isMoviesLoaded;
+    final isLoadingMovies = appState.isLoadingMovies;
     final recentMovies = _applySearch(allMoviesList.where((m) => m.isRecent).toList());
     final allMovies = _applySearch(allMoviesList.where((m) => !m.isRecent).toList());
+
+    // DB가 비어있거나 로드되지 않았을 때 처리
+    final bool isEmpty = allMoviesList.isEmpty && isMoviesLoaded;
+    final bool notLoaded = !isMoviesLoaded && !isLoadingMovies;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -68,6 +92,117 @@ class _ExploreScreenState extends State<ExploreScreen> {
       body: ValueListenableBuilder<Set<String>>(
         valueListenable: SavedStore.savedIds,
         builder: (context, savedIds, _) {
+          // DB가 비어있거나 로드되지 않았을 때 초기화 안내 표시
+          if (isEmpty || notLoaded) {
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: [
+                Text(
+                  '탐색',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // 검색창
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (v) => setState(() => _query = v),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      icon: Icon(Icons.search, size: 20),
+                      hintText: "영화 제목을 검색해보세요",
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 40),
+
+                // DB 초기화 안내 카드
+                Card(
+                  color: Colors.blue.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.storage,
+                          size: 64,
+                          color: Colors.blue.shade700,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          isEmpty
+                              ? 'DB에 영화 데이터가 없습니다'
+                              : 'DB에서 영화 데이터를 로드하지 못했습니다',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '더미 데이터를 DB에 저장하여 시작할 수 있습니다.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: textSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            _showLoading(context, 'DB 초기화 중...');
+                            try {
+                              final count = await MovieDbInitializer.initializeWithDummyData();
+                              await appState.refreshMovies();
+                              Navigator.of(context).pop(); // 로딩 닫기
+                              _showSnack('$count개의 영화가 저장되었습니다!');
+                            } catch (e) {
+                              Navigator.of(context).pop(); // 로딩 닫기
+                              _showSnack('오류: $e');
+                            }
+                          },
+                          icon: const Icon(Icons.add_circle),
+                          label: const Text('더미 데이터로 DB 초기화'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          // 로딩 중일 때
+          if (isLoadingMovies) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          // 정상적인 영화 목록 표시
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [

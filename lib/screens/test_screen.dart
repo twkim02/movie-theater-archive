@@ -1464,7 +1464,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                   const Divider(),
                   const SizedBox(height: 8),
                   const Text(
-                    '모든 영화 데이터를 삭제하고 더미 데이터로 다시 초기화합니다.',
+                    '모든 영화 데이터를 삭제합니다. 더미 데이터는 추가하지 않습니다.',
                     style: TextStyle(color: Colors.red),
                   ),
                   const SizedBox(height: 12),
@@ -1473,8 +1473,8 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                       final confirmed = await showDialog<bool>(
                         context: context,
                         builder: (context) => AlertDialog(
-                          title: const Text('정말 초기화하시겠습니까?'),
-                          content: const Text('모든 영화 데이터가 삭제됩니다.'),
+                          title: const Text('정말 삭제하시겠습니까?'),
+                          content: const Text('모든 영화 데이터가 삭제됩니다.\n더미 데이터는 추가되지 않습니다.'),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.of(context).pop(false),
@@ -1482,7 +1482,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                             ),
                             TextButton(
                               onPressed: () => Navigator.of(context).pop(true),
-                              child: const Text('초기화', style: TextStyle(color: Colors.red)),
+                              child: const Text('삭제', style: TextStyle(color: Colors.red)),
                             ),
                           ],
                         ),
@@ -1491,10 +1491,10 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                       if (confirmed == true) {
                         _showLoading(context, 'DB 초기화 중...');
                         try {
-                          await MovieDbInitializer.resetDatabase();
+                          await MovieDbInitializer.clearDatabase();
                           await appState.refreshMovies();
                           Navigator.of(context).pop(); // 로딩 닫기
-                          _showSuccess(context, 'DB가 초기화되었습니다.');
+                          _showSuccess(context, '모든 영화 데이터가 삭제되었습니다.');
                         } catch (e) {
                           Navigator.of(context).pop(); // 로딩 닫기
                           _showError(context, '오류: $e');
@@ -1502,7 +1502,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                       }
                     },
                     icon: const Icon(Icons.delete_forever),
-                    label: const Text('DB 초기화'),
+                    label: const Text('DB 초기화 (삭제만)'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.shade100,
                     ),
