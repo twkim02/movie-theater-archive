@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/colors.dart';
-import '../data/saved_store.dart';
 import '../models/movie.dart';
 import '../state/app_state.dart';
 
@@ -39,12 +38,11 @@ class _SavedScreenState extends State<SavedScreen> {
         ),
       ),
       body: SafeArea(
-        child: ValueListenableBuilder<Set<String>>(
-          valueListenable: SavedStore.savedIds,
-          builder: (context, savedIds, _) {
-            final appState = context.watch<AppState>();
-            final allMoviesList = appState.movies;
-            final savedMovies = allMoviesList.where((m) => savedIds.contains(m.id)).toList();
+        child: Consumer<AppState>(
+          builder: (context, appState, _) {
+            // 위시리스트에서 영화 목록 가져오기
+            final wishlist = appState.wishlist;
+            final savedMovies = wishlist.map((item) => item.movie).toList();
             final shown = _filterMovies(savedMovies);
 
             return ListView(
@@ -204,7 +202,10 @@ class _SavedGridCard extends StatelessWidget {
               top: 6,
               right: 6,
               child: InkWell(
-                onTap: () => SavedStore.toggle(movie.id),
+                onTap: () {
+                  final appState = Provider.of<AppState>(context, listen: false);
+                  appState.removeFromWishlist(movie.id);
+                },
                 borderRadius: BorderRadius.circular(999),
                 child: Container(
                   padding: const EdgeInsets.all(6),

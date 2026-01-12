@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/colors.dart';
-import '../data/record_store.dart';
 import '../models/record.dart';
+import '../state/app_state.dart';
 
 enum RecordSort { latest, rating, mostWatched }
 
@@ -305,9 +306,9 @@ class _DiaryScreenState extends State<DiaryScreen> {
         ),
       ),
       body: SafeArea(
-        child: ValueListenableBuilder<List<Record>>(
-          valueListenable: RecordStore.records,
-          builder: (context, records, _) {
+        child: Consumer<AppState>(
+          builder: (context, appState, _) {
+            final records = appState.records;
             final earliestIdMap = _earliestRecordIdByMovie(records);
 
             final filtered = records.where((r) => _matchesQuery(r) && _matchesRange(r)).toList();

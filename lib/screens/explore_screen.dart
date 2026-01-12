@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../theme/colors.dart';
 import '../models/movie.dart';
 import '../widgets/add_record_sheet.dart';
-import '../data/saved_store.dart';
 import '../state/app_state.dart';
 import '../services/movie_db_initializer.dart';
 import '../api/tmdb_client.dart';
@@ -287,9 +286,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
         ],
       ),
-      body: ValueListenableBuilder<Set<String>>(
-        valueListenable: SavedStore.savedIds,
-        builder: (context, savedIds, _) {
+      body: Consumer<AppState>(
+        builder: (context, appState, _) {
+          final savedIds = appState.bookmarkedMovieIds;
           // DB가 비어있거나 로드되지 않았을 때 초기화 안내 표시
           if (isEmpty || notLoaded) {
             return ListView(
@@ -545,7 +544,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           showTheaterButton: true, // ✅ 최근 상영만 영화관 보기 노출
                           onPressDiary: () => openAddRecordSheet(context, m),
                           onPressTheater: () => _showSnack('영화관 보기: ${m.title}'),
-                          onToggleSave: () => SavedStore.toggle(m.id), // ✅ 팝업 없음
+                          onToggleSave: () => appState.toggleBookmark(m.id), // ✅ DB에 저장
                         ),
                       )
                       .toList(),
@@ -582,7 +581,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           showTheaterButton: false, // ✅ 모든 영화는 영화관 보기 없음
                           onPressDiary: () => openAddRecordSheet(context, m),
                           onPressTheater: null,
-                          onToggleSave: () => SavedStore.toggle(m.id), // ✅ 팝업 없음
+                          onToggleSave: () => appState.toggleBookmark(m.id), // ✅ DB에 저장
                         ),
                       )
                       .toList(),

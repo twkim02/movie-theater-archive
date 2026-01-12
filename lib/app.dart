@@ -68,6 +68,10 @@ class MyApp extends StatelessWidget {
       // DB에서 영화 로드
       await appState.loadMoviesFromDatabase();
 
+      // DB에서 기록 및 위시리스트 로드
+      await appState.loadRecordsFromDatabase();
+      await appState.loadWishlistFromDatabase();
+
       // 24시간 경과 확인 및 자동 갱신
       await MovieUpdateService.checkAndUpdateIfNeeded();
       

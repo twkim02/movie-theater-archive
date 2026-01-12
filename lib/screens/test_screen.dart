@@ -10,7 +10,6 @@ import '../repositories/movie_repository.dart';
 import '../services/movie_db_initializer.dart';
 import '../services/movie_initialization_service.dart';
 import '../services/movie_update_service.dart';
-import '../repositories/movie_repository.dart';
 
 /// 개발/테스트용 화면
 /// 작성한 코드가 제대로 작동하는지 시각적으로 확인할 수 있습니다.
@@ -235,14 +234,16 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                   Text('테스트 영화 (${firstMovie.title}) 북마크 상태: ${appState.isBookmarked(firstMovie.id) ? "북마크됨" : "북마크 안됨"}'),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
-                    onPressed: () {
-                      appState.toggleBookmark(firstMovie.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('북마크 토글 완료! (화면이 자동 업데이트됨)'),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
+                    onPressed: () async {
+                      await appState.toggleBookmark(firstMovie.id);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('북마크 토글 완료! (화면이 자동 업데이트됨)'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      }
                     },
                     icon: Icon(appState.isBookmarked(firstMovie.id) ? Icons.bookmark : Icons.bookmark_border),
                     label: Text(appState.isBookmarked(firstMovie.id) ? '북마크 해제' : '북마크 추가'),
@@ -446,7 +447,9 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   // ========== 위시리스트 탭 ==========
   Widget _buildWishlistTab(BuildContext context, AppState appState) {
     final wishlist = appState.wishlist;
-    final availableMovies = appState.movies.where((m) => !appState.isInWishlist(m.id)).toList();
+    // 위시리스트에 없는 영화 필터링 (동기적으로 처리)
+    final bookmarkedIds = appState.bookmarkedMovieIds;
+    final availableMovies = appState.movies.where((m) => !bookmarkedIds.contains(m.id)).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -469,8 +472,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                   ),
                   const SizedBox(height: 12),
                   _buildStatItem('전체 위시리스트', '${appState.wishlistCount}개'),
-                  _buildStatItem('더미 데이터', '${appState.dummyWishlist.length}개'),
-                  _buildStatItem('추가된 아이템', '${wishlist.length - appState.dummyWishlist.length}개'),
+                  _buildStatItem('로드 상태', appState.isWishlistLoaded ? '로드 완료' : '로딩 중'),
                 ],
               ),
             ),
@@ -507,11 +509,24 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                           return Padding(
                             padding: const EdgeInsets.only(right: 8.0),
                             child: ElevatedButton(
-                              onPressed: () {
-                                appState.addToWishlist(movie);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('${movie.title}을(를) 위시리스트에 추가했습니다.')),
-                                );
+                              onPressed: () async {
+                                try {
+                                  await appState.addToWishlist(movie);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('${movie.title}을(를) 위시리스트에 추가했습니다.')),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('추가 실패: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
                               },
                               child: Text(movie.title, textAlign: TextAlign.center),
                             ),
@@ -609,16 +624,28 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                               ],
                             ),
                           ),
-                          if (!appState.dummyWishlist.contains(item))
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () {
-                                appState.removeFromWishlist(item.movie.id);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('${item.movie.title}을(를) 위시리스트에서 제거했습니다.')),
-                                );
-                              },
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () async {
+                              try {
+                                await appState.removeFromWishlist(item.movie.id);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('${item.movie.title}을(를) 위시리스트에서 제거했습니다.')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('제거 실패: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
                         ],
                       ),
                     )),

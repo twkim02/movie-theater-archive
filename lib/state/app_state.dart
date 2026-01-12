@@ -3,10 +3,11 @@ import '../models/movie.dart';
 import '../models/record.dart';
 import '../models/wishlist.dart';
 import '../models/summary.dart';
-import '../data/dummy_record.dart';
-import '../data/dummy_wishlist.dart';
 import '../data/dummy_summary.dart';
 import '../repositories/movie_repository.dart';
+import '../repositories/record_repository.dart';
+import '../repositories/wishlist_repository.dart';
+import '../services/user_initialization_service.dart';
 
 /// 기록 정렬 옵션
 enum RecordSortOption {
@@ -28,23 +29,30 @@ enum RecordSortOption {
 /// context.read<AppState>().toggleBookmark(movieId);
 /// ```
 class AppState extends ChangeNotifier {
-  // 북마크된 영화 ID를 저장하는 Set
-  final Set<String> _bookmarkedMovieIds = {};
-  
   // 기록 관련 필터 및 정렬 상태
   RecordSortOption _recordSortOption = RecordSortOption.latest;
   DateTime? _filterStartDate;
   DateTime? _filterEndDate;
   String _searchQuery = '';
-  
-  // 위시리스트 관련 상태
-  // 동적으로 추가된 위시리스트 아이템들을 저장 (더미데이터 외 추가된 항목)
-  final List<WishlistItem> _customWishlistItems = [];
 
   // 영화 리스트 캐시 (DB에서 로드한 데이터)
   List<Movie> _movies = [];
   bool _moviesLoaded = false;
   bool _isLoadingMovies = false;
+
+  // 기록 리스트 캐시 (DB에서 로드한 데이터)
+  List<Record> _records = [];
+  bool _recordsLoaded = false;
+  bool _isLoadingRecords = false;
+
+  // 위시리스트 캐시 (DB에서 로드한 데이터)
+  List<WishlistItem> _wishlist = [];
+  bool _wishlistLoaded = false;
+  bool _isLoadingWishlist = false;
+
+  // 북마크 상태 캐시 (DB에서 로드한 데이터)
+  Set<String> _bookmarkedMovieIds = {};
+  bool _bookmarksLoaded = false;
 
   /// 영화 로드 상태를 반환합니다.
   bool get isMoviesLoaded => _moviesLoaded;
@@ -93,8 +101,16 @@ class AppState extends ChangeNotifier {
     await loadMoviesFromDatabase();
   }
 
+  /// 북마크 로드 상태를 반환합니다.
+  bool get isBookmarksLoaded => _bookmarksLoaded;
+
   /// 북마크된 영화 ID 목록을 반환합니다.
-  Set<String> get bookmarkedMovieIds => Set.unmodifiable(_bookmarkedMovieIds);
+  Set<String> get bookmarkedMovieIds {
+    if (_bookmarksLoaded) {
+      return Set.unmodifiable(_bookmarkedMovieIds);
+    }
+    return <String>{};
+  }
 
   /// 북마크된 영화 목록만 반환합니다. (위시리스트용)
   List<Movie> get bookmarkedMovies {
@@ -106,47 +122,191 @@ class AppState extends ChangeNotifier {
   /// [movieId] 확인할 영화 ID
   /// Returns true if the movie is bookmarked, false otherwise
   bool isBookmarked(String movieId) {
+    if (!_bookmarksLoaded) {
+      // 로드되지 않았으면 DB에서 확인
+      _checkBookmarkStatus(movieId);
+      return false; // 비동기이므로 일단 false 반환
+    }
     return _bookmarkedMovieIds.contains(movieId);
+  }
+
+  /// DB에서 북마크 상태를 확인합니다 (비동기).
+  /// 
+  /// [movieId] 확인할 영화 ID
+  /// Returns true if the movie is bookmarked
+  Future<bool> isBookmarkedAsync(String movieId) async {
+    if (!_bookmarksLoaded) {
+      await loadWishlistFromDatabase();
+    }
+    return _bookmarkedMovieIds.contains(movieId);
+  }
+
+  /// 북마크 상태를 확인합니다 (내부용).
+  Future<void> _checkBookmarkStatus(String movieId) async {
+    try {
+      final defaultUserId = UserInitializationService.getDefaultUserId();
+      final isIn = await WishlistRepository.isInWishlist(defaultUserId, movieId);
+      if (isIn && !_bookmarkedMovieIds.contains(movieId)) {
+        _bookmarkedMovieIds.add(movieId);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('북마크 상태 확인 실패: $e');
+    }
   }
 
   /// 영화의 북마크 상태를 토글합니다.
   /// 북마크되어 있으면 해제하고, 없으면 추가합니다.
   /// 
   /// [movieId] 토글할 영화 ID
-  void toggleBookmark(String movieId) {
-    if (_bookmarkedMovieIds.contains(movieId)) {
-      _bookmarkedMovieIds.remove(movieId);
-    } else {
-      _bookmarkedMovieIds.add(movieId);
+  /// DB에 저장하고 로컬 캐시를 업데이트합니다.
+  Future<void> toggleBookmark(String movieId) async {
+    try {
+      final defaultUserId = UserInitializationService.getDefaultUserId();
+      await WishlistRepository.toggleWishlist(defaultUserId, movieId);
+      
+      // 로컬 캐시 업데이트
+      await loadWishlistFromDatabase();
+    } catch (e) {
+      debugPrint('북마크 토글 실패: $e');
+      rethrow;
     }
-    notifyListeners(); // UI 업데이트를 위해 리스너에게 알림
   }
 
   /// 특정 영화를 북마크에 추가합니다.
   /// 
   /// [movieId] 추가할 영화 ID
-  void addBookmark(String movieId) {
-    if (!_bookmarkedMovieIds.contains(movieId)) {
-      _bookmarkedMovieIds.add(movieId);
-      notifyListeners();
+  /// DB에 저장하고 로컬 캐시를 업데이트합니다.
+  Future<void> addBookmark(String movieId) async {
+    try {
+      final defaultUserId = UserInitializationService.getDefaultUserId();
+      await WishlistRepository.addToWishlist(defaultUserId, movieId);
+      
+      // 로컬 캐시 업데이트
+      await loadWishlistFromDatabase();
+    } catch (e) {
+      debugPrint('북마크 추가 실패: $e');
+      rethrow;
     }
   }
 
   /// 특정 영화를 북마크에서 제거합니다.
   /// 
   /// [movieId] 제거할 영화 ID
-  void removeBookmark(String movieId) {
-    if (_bookmarkedMovieIds.contains(movieId)) {
-      _bookmarkedMovieIds.remove(movieId);
-      notifyListeners();
+  /// DB에서 제거하고 로컬 캐시를 갱신합니다.
+  Future<void> removeBookmark(String movieId) async {
+    try {
+      final defaultUserId = UserInitializationService.getDefaultUserId();
+      await WishlistRepository.removeFromWishlist(defaultUserId, movieId);
+      
+      // 로컬 캐시 업데이트
+      await loadWishlistFromDatabase();
+    } catch (e) {
+      debugPrint('북마크 제거 실패: $e');
+      rethrow;
     }
   }
 
   // ========== 기록(Records) 관련 기능 ==========
 
+  /// 기록 로드 상태를 반환합니다.
+  bool get isRecordsLoaded => _recordsLoaded;
+
+  /// 기록 로딩 중인지 반환합니다.
+  bool get isLoadingRecords => _isLoadingRecords;
+
+  /// 기록 리스트를 DB에서 로드합니다.
+  /// 
+  /// 앱 시작 시 또는 기록 추가/수정/삭제 후 호출합니다.
+  Future<void> loadRecordsFromDatabase() async {
+    if (_isLoadingRecords) return; // 이미 로딩 중이면 스킵
+
+    _isLoadingRecords = true;
+    notifyListeners();
+
+    try {
+      final defaultUserId = UserInitializationService.getDefaultUserId();
+      _records = await RecordRepository.getRecordsByUserId(defaultUserId);
+      _recordsLoaded = true;
+    } catch (e) {
+      debugPrint('기록 로드 실패: $e');
+      _records = [];
+      _recordsLoaded = false;
+    } finally {
+      _isLoadingRecords = false;
+      notifyListeners();
+    }
+  }
+
+  /// 기록 리스트를 새로고침합니다.
+  /// 
+  /// DB에서 최신 데이터를 다시 로드합니다.
+  Future<void> refreshRecords() async {
+    await loadRecordsFromDatabase();
+  }
+
   /// 모든 관람 기록 리스트를 반환합니다.
-  /// 더미데이터 예시.txt의 기록 정보를 기반으로 합니다.
-  List<Record> get allRecords => DummyRecords.getRecords();
+  /// DB에서 로드한 데이터를 반환합니다.
+  /// DB가 비어있거나 로드되지 않았으면 빈 리스트를 반환합니다.
+  List<Record> get allRecords {
+    if (_recordsLoaded) {
+      return _records;
+    }
+    // DB가 아직 로드되지 않았으면 빈 리스트 반환
+    return [];
+  }
+
+  /// 기록을 추가합니다.
+  /// 
+  /// [record] 추가할 기록
+  /// DB에 저장하고 로컬 캐시를 업데이트합니다.
+  Future<void> addRecord(Record record) async {
+    try {
+      final defaultUserId = UserInitializationService.getDefaultUserId();
+      // userId를 기본 사용자로 설정
+      final recordWithUserId = record.copyWith(userId: defaultUserId);
+      
+      await RecordRepository.addRecord(recordWithUserId);
+      
+      // 로컬 캐시 업데이트
+      await loadRecordsFromDatabase();
+    } catch (e) {
+      debugPrint('기록 추가 실패: $e');
+      rethrow;
+    }
+  }
+
+  /// 기록을 업데이트합니다.
+  /// 
+  /// [record] 업데이트할 기록
+  /// DB를 업데이트하고 로컬 캐시를 갱신합니다.
+  Future<void> updateRecord(Record record) async {
+    try {
+      await RecordRepository.updateRecord(record);
+      
+      // 로컬 캐시 업데이트
+      await loadRecordsFromDatabase();
+    } catch (e) {
+      debugPrint('기록 업데이트 실패: $e');
+      rethrow;
+    }
+  }
+
+  /// 기록을 삭제합니다.
+  /// 
+  /// [recordId] 삭제할 기록 ID
+  /// DB에서 삭제하고 로컬 캐시를 갱신합니다.
+  Future<void> deleteRecord(int recordId) async {
+    try {
+      await RecordRepository.deleteRecord(recordId);
+      
+      // 로컬 캐시 업데이트
+      await loadRecordsFromDatabase();
+    } catch (e) {
+      debugPrint('기록 삭제 실패: $e');
+      rethrow;
+    }
+  }
 
   /// 현재 필터 및 정렬 옵션이 적용된 관람 기록 리스트를 반환합니다.
   List<Record> get records {
@@ -276,6 +436,14 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// DB에서 기록을 조회합니다 (비동기).
+  /// 
+  /// [recordId] 기록 ID
+  /// Returns 기록 정보 (없으면 null)
+  Future<Record?> getRecordByIdAsync(int recordId) async {
+    return await RecordRepository.getRecordById(recordId);
+  }
+
   /// 기록 통계를 반환합니다.
   /// 
   /// Returns Map containing:
@@ -309,23 +477,56 @@ class AppState extends ChangeNotifier {
 
   // ========== 위시리스트(Wishlist) 관련 기능 ==========
 
-  /// 모든 위시리스트 아이템 리스트를 반환합니다.
-  /// 더미데이터와 동적으로 추가된 아이템을 모두 포함합니다.
-  /// 더미데이터 예시.txt의 위시리스트 정보를 기반으로 합니다.
-  List<WishlistItem> get wishlist {
-    // 더미데이터와 동적으로 추가된 아이템을 합침
-    final allItems = <WishlistItem>[];
-    allItems.addAll(DummyWishlist.getWishlist());
-    allItems.addAll(_customWishlistItems);
-    
-    // savedAt 기준 내림차순 정렬 (최신순)
-    allItems.sort((a, b) => b.savedAt.compareTo(a.savedAt));
-    
-    return allItems;
+  /// 위시리스트 로드 상태를 반환합니다.
+  bool get isWishlistLoaded => _wishlistLoaded;
+
+  /// 위시리스트 로딩 중인지 반환합니다.
+  bool get isLoadingWishlist => _isLoadingWishlist;
+
+  /// 위시리스트를 DB에서 로드합니다.
+  /// 
+  /// 앱 시작 시 또는 위시리스트 추가/제거 후 호출합니다.
+  Future<void> loadWishlistFromDatabase() async {
+    if (_isLoadingWishlist) return; // 이미 로딩 중이면 스킵
+
+    _isLoadingWishlist = true;
+    notifyListeners();
+
+    try {
+      final defaultUserId = UserInitializationService.getDefaultUserId();
+      _wishlist = await WishlistRepository.getWishlist(defaultUserId);
+      _wishlistLoaded = true;
+      
+      // 북마크 상태도 함께 업데이트
+      _bookmarkedMovieIds = _wishlist.map((item) => item.movie.id).toSet();
+      _bookmarksLoaded = true;
+    } catch (e) {
+      debugPrint('위시리스트 로드 실패: $e');
+      _wishlist = [];
+      _wishlistLoaded = false;
+    } finally {
+      _isLoadingWishlist = false;
+      notifyListeners();
+    }
   }
 
-  /// 더미데이터에 포함된 위시리스트만 반환합니다.
-  List<WishlistItem> get dummyWishlist => DummyWishlist.getWishlist();
+  /// 위시리스트를 새로고침합니다.
+  /// 
+  /// DB에서 최신 데이터를 다시 로드합니다.
+  Future<void> refreshWishlist() async {
+    await loadWishlistFromDatabase();
+  }
+
+  /// 모든 위시리스트 아이템 리스트를 반환합니다.
+  /// DB에서 로드한 데이터를 반환합니다.
+  /// DB가 비어있거나 로드되지 않았으면 빈 리스트를 반환합니다.
+  List<WishlistItem> get wishlist {
+    if (_wishlistLoaded) {
+      return _wishlist;
+    }
+    // DB가 아직 로드되지 않았으면 빈 리스트 반환
+    return [];
+  }
 
   /// 특정 영화가 위시리스트에 있는지 확인합니다.
   /// 
@@ -339,36 +540,34 @@ class AppState extends ChangeNotifier {
   /// 이미 있으면 추가하지 않습니다.
   /// 
   /// [movie] 추가할 영화
-  void addToWishlist(Movie movie) {
-    // 이미 위시리스트에 있는지 확인
-    if (isInWishlist(movie.id)) {
-      return;
+  /// DB에 저장하고 로컬 캐시를 업데이트합니다.
+  Future<void> addToWishlist(Movie movie) async {
+    try {
+      final defaultUserId = UserInitializationService.getDefaultUserId();
+      await WishlistRepository.addToWishlist(defaultUserId, movie.id);
+      
+      // 로컬 캐시 업데이트
+      await loadWishlistFromDatabase();
+    } catch (e) {
+      debugPrint('위시리스트 추가 실패: $e');
+      rethrow;
     }
-
-    // 새로운 WishlistItem 생성 (현재 시간으로 savedAt 설정)
-    final newItem = WishlistItem(
-      movie: movie,
-      savedAt: DateTime.now(),
-    );
-
-    _customWishlistItems.add(newItem);
-    notifyListeners();
   }
 
   /// 위시리스트에서 영화를 제거합니다.
   /// 
   /// [movieId] 제거할 영화 ID
-  void removeFromWishlist(String movieId) {
-    // 더미데이터는 제거할 수 없으므로, 동적으로 추가된 아이템만 제거
-    final beforeLength = _customWishlistItems.length;
-    _customWishlistItems.removeWhere(
-      (item) => item.movie.id == movieId,
-    );
-    final afterLength = _customWishlistItems.length;
-    
-    // 실제로 제거된 경우에만 UI 업데이트
-    if (beforeLength > afterLength) {
-      notifyListeners();
+  /// DB에서 제거하고 로컬 캐시를 갱신합니다.
+  Future<void> removeFromWishlist(String movieId) async {
+    try {
+      final defaultUserId = UserInitializationService.getDefaultUserId();
+      await WishlistRepository.removeFromWishlist(defaultUserId, movieId);
+      
+      // 로컬 캐시 업데이트
+      await loadWishlistFromDatabase();
+    } catch (e) {
+      debugPrint('위시리스트 제거 실패: $e');
+      rethrow;
     }
   }
 

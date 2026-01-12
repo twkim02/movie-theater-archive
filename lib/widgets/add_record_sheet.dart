@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../models/movie.dart';
 import '../theme/colors.dart';
 import '../models/record.dart';
-import '../data/record_store.dart';
+import '../state/app_state.dart';
+import '../services/user_initialization_service.dart';
 
 void openAddRecordSheet(BuildContext context, Movie movie) {
   showModalBottomSheet(
@@ -75,27 +77,53 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
   TextStyle get labelStyle =>
       const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF777777));
 
-  void _save() {
+  Future<void> _save() async {
     // ✅ 별점 필수 체크 (라벨 옆 빨간 글씨)
     if (rating <= 0) {
       setState(() => showRatingError = true);
       return;
     }
 
+    final defaultUserId = UserInitializationService.getDefaultUserId();
     final record = Record(
-      id: RecordStore.nextId(),
-      userId: 1,
+      id: 0, // DB에서 자동 생성
+      userId: defaultUserId,
       movie: widget.movie,
       rating: rating,
       watchDate: watchDate,
-      oneLiner: oneLinerController.text.trim(),
-      detailedReview: detailedController.text.trim(),
+      oneLiner: oneLinerController.text.trim().isEmpty
+          ? null
+          : oneLinerController.text.trim(),
+      detailedReview: detailedController.text.trim().isEmpty
+          ? null
+          : detailedController.text.trim(),
       tags: selectedTags.toList(),
       photoUrl: null,
     );
 
-    RecordStore.add(record);
-    Navigator.pop(context);
+    // AppState를 통해 DB에 저장
+    final appState = Provider.of<AppState>(context, listen: false);
+    try {
+      await appState.addRecord(record);
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('기록이 저장되었습니다.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('기록 저장 실패: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override
