@@ -8,7 +8,6 @@ import 'services/movie_db_initializer.dart';
 import 'services/movie_initialization_service.dart';
 import 'services/movie_update_service.dart';
 import 'services/user_initialization_service.dart';
-import 'widgets/splash_screen.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -27,9 +26,7 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           fontFamily: 'TypoCrayon', // 팀원의 폰트 설정 유지
         ),
-        home: const SplashScreen(
-          child: RootScreen(),
-        ),
+        home: const RootScreen(),
       ),
     );
   }

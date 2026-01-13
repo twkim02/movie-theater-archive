@@ -61,6 +61,7 @@ flutter:
   assets:
     - assets/fonts/
     - assets/moviary_icon.png
+    - assets/new_moviary_icon.png
     - env.json
 
   fonts:
@@ -72,7 +73,7 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/moviary_icon.png"
+  image_path: "assets/new_moviary_icon.png"
   min_sdk_android: 21 # Android 5.0 이상
   adaptive_icon_background: "#FEFCF9"
-  adaptive_icon_foreground: "assets/moviary_icon.png"
+  adaptive_icon_foreground: "assets/new_moviary_icon.png"
