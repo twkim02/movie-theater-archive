@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
   google_fonts: ^6.2.1
@@ -32,6 +33,10 @@ dependencies:
   # SharedPreferences (초기화 플래그 저장용)
   shared_preferences: ^2.2.2
 
+  # ✅ 영화관 보기 탭 (위치/링크)
+  geolocator: ^12.0.0
+  url_launcher: ^6.3.0
+
   # 백그라운드 작업 (자동 갱신) - 나중에 필요할 때 추가
   # workmanager: ^0.5.2  # 현재 Kotlin 컴파일 오류로 인해 주석 처리
 
@@ -42,11 +47,6 @@ dev_dependencies:
   # 테스트용 SQLite (FFI)
   sqflite_common_ffi: ^2.3.0
 
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
   hive_generator: ^2.0.1

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../theme/colors.dart';
 import '../models/movie.dart';
 import '../widgets/add_record_sheet.dart';
@@ -10,6 +11,7 @@ import '../api/tmdb_mapper.dart';
 import '../utils/env_loader.dart';
 import '../repositories/movie_repository.dart';
 import 'test_screen.dart';
+import 'theater_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -52,7 +54,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
       ),
     );
   }
-
 
   /// TMDb API를 사용하여 영화를 검색합니다.
   Future<void> _searchMoviesFromTmdb(String query) async {
@@ -148,8 +149,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
         final detail = await client.getMovieDetails(movieId);
 
-        // 디버깅: TMDb API 응답의 원본 runtime 값 확인
-        debugPrint('🔍 TMDb API 응답 - ID: ${detail.id}, Title: ${detail.title}, Runtime: ${detail.runtime} (타입: ${detail.runtime.runtimeType})');
+        debugPrint(
+            '🔍 TMDb API 응답 - ID: ${detail.id}, Title: ${detail.title}, Runtime: ${detail.runtime} (타입: ${detail.runtime.runtimeType})');
 
         // 상세 정보를 Movie 모델로 변환
         final movieWithDetails = TmdbMapper.toMovieFromDetail(
@@ -157,14 +158,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
           isRecent: movie.isRecent, // 기존 isRecent 값 유지
         );
 
-        // 디버깅: 변환된 Movie 모델의 runtime 확인
-        debugPrint('✅ 변환된 Movie - ID: ${movieWithDetails.id}, Title: ${movieWithDetails.title}, Runtime: ${movieWithDetails.runtime}');
+        debugPrint(
+            '✅ 변환된 Movie - ID: ${movieWithDetails.id}, Title: ${movieWithDetails.title}, Runtime: ${movieWithDetails.runtime}');
 
         // runtime이 0이면 경고 (TMDb API에서 runtime이 제공되지 않았을 수 있음)
         if (movieWithDetails.runtime == 0 && detail.runtime == null) {
-          debugPrint('⚠️ 경고: 영화 "${movieWithDetails.title}"의 runtime이 TMDb API에서 제공되지 않았습니다.');
-        } else if (movieWithDetails.runtime == 0 && detail.runtime != null && detail.runtime! > 0) {
-          debugPrint('❌ 오류: 영화 "${movieWithDetails.title}"의 runtime이 변환 과정에서 0으로 설정되었습니다. 원본: ${detail.runtime}');
+          debugPrint(
+              '⚠️ 경고: 영화 "${movieWithDetails.title}"의 runtime이 TMDb API에서 제공되지 않았습니다.');
+        } else if (movieWithDetails.runtime == 0 &&
+            detail.runtime != null &&
+            detail.runtime! > 0) {
+          debugPrint(
+              '❌ 오류: 영화 "${movieWithDetails.title}"의 runtime이 변환 과정에서 0으로 설정되었습니다. 원본: ${detail.runtime}');
         }
 
         // 로딩 닫기
@@ -172,15 +177,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
         // DB에 추가
         await MovieRepository.addMovie(movieWithDetails);
-        
+
         // 디버깅: DB 저장 후 확인
         final savedMovie = await MovieRepository.getMovieById(movieWithDetails.id);
         if (savedMovie != null) {
-          debugPrint('💾 DB 저장 확인 - ID: ${savedMovie.id}, Title: ${savedMovie.title}, Runtime: ${savedMovie.runtime}');
-          
-          // DB에서 읽은 runtime이 0이고 원본이 0이 아니면 문제
-          if (savedMovie.runtime == 0 && detail.runtime != null && detail.runtime! > 0) {
-            debugPrint('❌ 심각한 오류: DB에 저장된 runtime이 0입니다. 원본 TMDb runtime: ${detail.runtime}');
+          debugPrint(
+              '💾 DB 저장 확인 - ID: ${savedMovie.id}, Title: ${savedMovie.title}, Runtime: ${savedMovie.runtime}');
+
+          if (savedMovie.runtime == 0 &&
+              detail.runtime != null &&
+              detail.runtime! > 0) {
+            debugPrint(
+                '❌ 심각한 오류: DB에 저장된 runtime이 0입니다. 원본 TMDb runtime: ${detail.runtime}');
           }
         } else {
           debugPrint('❌ 오류: DB에서 영화를 찾을 수 없습니다.');
@@ -191,7 +199,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
         _showSnack('"${movieWithDetails.title}"이(가) 추가되었습니다.');
       } catch (e) {
-        // 로딩 닫기
         if (mounted) {
           Navigator.of(context).pop();
         }
@@ -204,9 +211,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   /// 검색 결과를 표시하는 다이얼로그를 엽니다.
   void _showSearchResultsDialog(BuildContext context, AppState appState) {
-    if (_searchResults.isEmpty) {
-      return;
-    }
+    if (_searchResults.isEmpty) return;
 
     showDialog(
       context: context,
@@ -221,9 +226,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
               final movie = _searchResults[index];
               return ListTile(
                 title: Text(movie.title),
-                subtitle: movie.releaseDate.isNotEmpty
-                    ? Text('개봉일: ${movie.releaseDate}')
-                    : null,
+                subtitle:
+                    movie.releaseDate.isNotEmpty ? Text('개봉일: ${movie.releaseDate}') : null,
                 trailing: IconButton(
                   icon: const Icon(Icons.add_circle_outline),
                   onPressed: () async {
@@ -260,17 +264,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final recentMovies = _applySearch(allMoviesList.where((m) => m.isRecent).toList());
     final allMovies = _applySearch(allMoviesList.where((m) => !m.isRecent).toList());
 
-    // DB가 비어있거나 로드되지 않았을 때 처리
     final bool isEmpty = allMoviesList.isEmpty && isMoviesLoaded;
     final bool notLoaded = !isMoviesLoaded && !isLoadingMovies;
 
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text(
-          '무비어리',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
+        title: const Text('무비어리', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           IconButton(
             icon: const Icon(Icons.bug_report),
@@ -278,9 +278,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const TestScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const TestScreen()),
               );
             },
           ),
@@ -289,19 +287,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
       body: Consumer<AppState>(
         builder: (context, appState, _) {
           final savedIds = appState.bookmarkedMovieIds;
-          // DB가 비어있거나 로드되지 않았을 때 초기화 안내 표시
+
           if (isEmpty || notLoaded) {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               children: [
-                Text(
-                  '탐색',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: textPrimary,
-                  ),
-                ),
+                Text('탐색',
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary)),
                 const SizedBox(height: 10),
 
                 // 검색창
@@ -356,23 +349,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
                 const SizedBox(height: 40),
 
-                // DB 초기화 안내 카드
                 Card(
                   color: Colors.blue.shade50,
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
                       children: [
-                        Icon(
-                          Icons.storage,
-                          size: 64,
-                          color: Colors.blue.shade700,
-                        ),
+                        Icon(Icons.storage, size: 64, color: Colors.blue.shade700),
                         const SizedBox(height: 16),
                         Text(
-                          isEmpty
-                              ? 'DB에 영화 데이터가 없습니다'
-                              : 'DB에서 영화 데이터를 로드하지 못했습니다',
+                          isEmpty ? 'DB에 영화 데이터가 없습니다' : 'DB에서 영화 데이터를 로드하지 못했습니다',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -383,10 +369,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         const SizedBox(height: 8),
                         Text(
                           '더미 데이터를 DB에 저장하여 시작할 수 있습니다.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: textSecondary,
-                          ),
+                          style: TextStyle(fontSize: 13, color: textSecondary),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 20),
@@ -396,10 +379,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             try {
                               final count = await MovieDbInitializer.initializeWithDummyData();
                               await appState.refreshMovies();
-                              Navigator.of(context).pop(); // 로딩 닫기
+                              Navigator.of(context).pop();
                               _showSnack('$count개의 영화가 저장되었습니다!');
                             } catch (e) {
-                              Navigator.of(context).pop(); // 로딩 닫기
+                              Navigator.of(context).pop();
                               _showSnack('오류: $e');
                             }
                           },
@@ -408,10 +391,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           ),
                         ),
                       ],
@@ -422,25 +402,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
             );
           }
 
-          // 로딩 중일 때
           if (isLoadingMovies) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
-          // 정상적인 영화 목록 표시
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
-              Text(
-                '탐색',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: textPrimary,
-                ),
-              ),
+              Text('탐색',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary)),
               const SizedBox(height: 10),
 
               // 검색창
@@ -498,14 +469,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
               // 최근 상영 섹션 헤더
               Row(
                 children: [
-                  Text(
-                    '최근 상영 중인 영화',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: textPrimary,
-                    ),
-                  ),
+                  Text('최근 상영 중인 영화',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary)),
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -541,10 +507,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         (m) => MovieCard(
                           movie: m,
                           isSaved: savedIds.contains(m.id),
-                          showTheaterButton: true, // ✅ 최근 상영만 영화관 보기 노출
+                          showTheaterButton: true,
                           onPressDiary: () => openAddRecordSheet(context, m),
-                          onPressTheater: () => _showSnack('영화관 보기: ${m.title}'),
-                          onToggleSave: () => appState.toggleBookmark(m.id), // ✅ DB에 저장
+
+                          // ✅ 여기 수정! 영화관 보기 버튼 → TheaterScreen으로 이동
+                          onPressTheater: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TheaterScreen(movie: m),
+                              ),
+                            );
+                          },
+
+                          onToggleSave: () => appState.toggleBookmark(m.id),
                         ),
                       )
                       .toList(),
@@ -552,24 +528,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
               const SizedBox(height: 20),
 
-              // 모든 영화 섹션 헤더
-              Text(
-                '모든 영화',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: textPrimary,
-                ),
-              ),
+              Text('모든 영화',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary)),
               const SizedBox(height: 12),
 
               if (allMovies.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Text(
-                    "검색 결과가 없어요.",
-                    style: TextStyle(color: textSecondary, fontWeight: FontWeight.w600),
-                  ),
+                  child: Text("검색 결과가 없어요.",
+                      style: TextStyle(color: textSecondary, fontWeight: FontWeight.w600)),
                 )
               else
                 Column(
@@ -578,10 +546,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         (m) => MovieCard(
                           movie: m,
                           isSaved: savedIds.contains(m.id),
-                          showTheaterButton: false, // ✅ 모든 영화는 영화관 보기 없음
+                          showTheaterButton: false,
                           onPressDiary: () => openAddRecordSheet(context, m),
                           onPressTheater: null,
-                          onToggleSave: () => appState.toggleBookmark(m.id), // ✅ DB에 저장
+                          onToggleSave: () => appState.toggleBookmark(m.id),
                         ),
                       )
                       .toList(),
@@ -602,7 +570,6 @@ class MovieCard extends StatelessWidget {
   final VoidCallback? onToggleSave;
   final bool isSaved;
 
-  /// ✅ 최근 상영만 영화관 보기 버튼 노출
   final bool showTheaterButton;
 
   const MovieCard({
@@ -644,7 +611,6 @@ class MovieCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 포스터
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: Image.network(
@@ -663,12 +629,10 @@ class MovieCard extends StatelessWidget {
             ),
             const SizedBox(width: 12),
 
-            // 오른쪽 정보
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 제목 + 북마크
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -701,7 +665,6 @@ class MovieCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
 
-                  // 메타(장르/연도/러닝타임)
                   Text(
                     metaText,
                     maxLines: 1,
@@ -714,7 +677,6 @@ class MovieCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
 
-                  // 사람들 평점
                   Row(
                     children: [
                       const Icon(Icons.star, size: 16, color: Color(0xFFFFC107)),
@@ -731,7 +693,6 @@ class MovieCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  // 버튼
                   if (showTheaterButton)
                     Row(
                       children: [
