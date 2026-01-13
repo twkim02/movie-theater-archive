@@ -14,6 +14,8 @@ import '../utils/csv_parser.dart';
 import '../services/movie_title_matcher.dart';
 import '../api/lottecinema_client.dart';
 import '../models/lottecinema_data.dart';
+import '../services/theater_schedule_service.dart';
+import '../models/theater.dart';
 
 /// 개발/테스트용 화면
 /// 작성한 코드가 제대로 작동하는지 시각적으로 확인할 수 있습니다.
@@ -1964,6 +1966,122 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           
           const SizedBox(height: 16),
           
+          // 상영 시간표 서비스 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '3. 상영 시간표 서비스 테스트',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: () async {
+                      // 오늘과 내일 날짜 준비
+                      final today = DateTime.now();
+                      final tomorrow = today.add(const Duration(days: 1));
+                      
+                      // 병렬로 두 날짜의 상영 시간표 가져오기 (캐싱 활용)
+                      final results = await Future.wait([
+                        TheaterScheduleService.getLotteCinemaSchedule(
+                          theaterName: '롯데시네마 대전센트럴',
+                          movieTitle: '만약에 우리',
+                          date: today,
+                        ),
+                        TheaterScheduleService.getLotteCinemaSchedule(
+                          theaterName: '롯데시네마 대전센트럴',
+                          movieTitle: '만약에 우리',
+                          date: tomorrow,
+                        ),
+                      ]);
+                      
+                      return {
+                        'today': results[0],
+                        'tomorrow': results[1],
+                        'todayDate': today,
+                        'tomorrowDate': tomorrow,
+                      };
+                    }(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      if (snapshot.hasError) {
+                        return Text('오류: ${snapshot.error}');
+                      }
+                      
+                      final data = snapshot.data ?? {};
+                      final todayShowtimes = (data['today'] as List<Showtime>?) ?? [];
+                      final tomorrowShowtimes = (data['tomorrow'] as List<Showtime>?) ?? [];
+                      final totalCount = todayShowtimes.length + tomorrowShowtimes.length;
+                      
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTestResultItem(
+                            '롯데시네마 상영 시간표 가져오기',
+                            true,
+                            '총 ${totalCount}개 (오늘: ${todayShowtimes.length}개, 내일: ${tomorrowShowtimes.length}개)',
+                          ),
+                          if (todayShowtimes.isNotEmpty || tomorrowShowtimes.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                final todayDate = data['todayDate'] as DateTime? ?? DateTime.now();
+                                final tomorrowDate = data['tomorrowDate'] as DateTime? ?? todayDate.add(const Duration(days: 1));
+                                
+                                String formatDate(DateTime d) {
+                                  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+                                }
+                                
+                                _showShowtimesDialog(
+                                  context,
+                                  todayShowtimes,
+                                  tomorrowShowtimes,
+                                  formatDate(todayDate),
+                                  formatDate(tomorrowDate),
+                                );
+                              },
+                              icon: const Icon(Icons.schedule, size: 18),
+                              label: const Text('상영 시간표 상세 보기'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue.shade50,
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<List<Showtime>>(
+                    future: TheaterScheduleService.getLotteCinemaSchedule(
+                      theaterName: 'CGV 대전',
+                      movieTitle: '만약에 우리',
+                      date: DateTime.now(),
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final showtimes = snapshot.data ?? [];
+                      return _buildTestResultItem(
+                        'CGV 영화관 (롯데시네마 아님)',
+                        showtimes.isEmpty,
+                        showtimes.isEmpty ? '빈 리스트 (정상)' : '${showtimes.length}개',
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
           // API 클라이언트 테스트
           Card(
             child: Padding(
@@ -2117,6 +2235,90 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
               
               // 둘 다 비어있는 경우
               if (todaySchedules.isEmpty && tomorrowSchedules.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    '상영 시간표가 없습니다.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showShowtimesDialog(
+    BuildContext context,
+    List<Showtime> todayShowtimes,
+    List<Showtime> tomorrowShowtimes,
+    String todayDate,
+    String tomorrowDate,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('상영 시간표 (TheaterScheduleService)'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              // 오늘 상영 시간표
+              if (todayShowtimes.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, top: 8),
+                  child: Text(
+                    '📅 $todayDate (오늘)',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ),
+                ...todayShowtimes.map((showtime) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text('${showtime.start} ~ ${showtime.end}'),
+                        subtitle: Text('${showtime.screen}'),
+                      ),
+                    )),
+                const SizedBox(height: 16),
+              ],
+              
+              // 내일 상영 시간표
+              if (tomorrowShowtimes.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, top: 8),
+                  child: Text(
+                    '📅 $tomorrowDate (내일)',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                ),
+                ...tomorrowShowtimes.map((showtime) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text('${showtime.start} ~ ${showtime.end}'),
+                        subtitle: Text('${showtime.screen}'),
+                      ),
+                    )),
+              ],
+              
+              // 둘 다 비어있는 경우
+              if (todayShowtimes.isEmpty && tomorrowShowtimes.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(16.0),
                   child: Text(

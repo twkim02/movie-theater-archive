@@ -2,6 +2,7 @@ import 'dart:math';
 import '../models/theater.dart';
 import '../api/kakao_local_client.dart';
 import '../utils/env_loader.dart';
+import '../services/theater_schedule_service.dart';
 
 
 double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
@@ -55,7 +56,7 @@ Future<List<Theater>> fetchNearbyTheatersReal({
     size: 15,
   );
 
-  final theaters = docs.map((d) {
+  final theaters = await Future.wait(docs.map((d) async {
     final name = (d['place_name'] ?? '').toString();
     final address = (d['road_address_name'] ?? d['address_name'] ?? '').toString();
     final x = double.tryParse((d['x'] ?? '').toString()) ?? 0; // lng
@@ -71,9 +72,23 @@ Future<List<Theater>> fetchNearbyTheatersReal({
         ? distKmFromApi
         : _haversineKm(lat, lng, y, x); // ✅ 0이면 직접 계산
 
-
     // 예매/시간표는 네이버 검색으로 안전하게 연결
     final bookingQuery = '$name $movieTitle 상영시간표 ${_dateYmd(date)}';
+
+    // 롯데시네마 영화관인 경우 실제 상영 시간표 가져오기
+    List<Showtime> showtimes = [];
+    if (name.contains('롯데시네마') || name.contains('롯데')) {
+      try {
+        showtimes = await TheaterScheduleService.getLotteCinemaSchedule(
+          theaterName: name,
+          movieTitle: movieTitle,
+          date: date,
+        );
+      } catch (e) {
+        // 에러 발생 시 빈 리스트 유지 (조용히 처리)
+        showtimes = [];
+      }
+    }
 
     return Theater(
       id: id,
@@ -82,10 +97,10 @@ Future<List<Theater>> fetchNearbyTheatersReal({
       lat: y,
       lng: x,
       distanceKm: distKm,
-      showtimes: const [], // ✅ 공식 시간표 없으면 비움
+      showtimes: showtimes, // ✅ 롯데시네마면 실제 시간표, 아니면 빈 리스트
       bookingUrl: _naverSearchUrl(bookingQuery),
     );
-  }).toList();
+  }));
 
   theaters.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
   return theaters;
