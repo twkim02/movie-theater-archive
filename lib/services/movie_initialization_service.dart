@@ -105,7 +105,7 @@ class MovieInitializationService {
   /// Returns 저장된 영화 개수
   static Future<int> _savePopularMovies(
     TmdbClient client, {
-    int maxPages = 3,
+    int maxPages = 7,
   }) async {
     int totalSaved = 0;
 
