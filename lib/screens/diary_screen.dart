@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../theme/colors.dart';
 import '../models/record.dart';
 import '../state/app_state.dart';
 
-// ✅ 새로 추가한 기록 팝업용 모델/위젯
+// ✅ 기록 팝업
 import '../widgets/movie_diary_popup.dart';
 
 enum RecordSort { latest, rating, mostWatched }
@@ -50,8 +51,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
     _searchController.dispose();
     super.dispose();
   }
-
-
 
   String _formatDate(DateTime d) {
     final mm = d.month.toString().padLeft(2, '0');
@@ -448,7 +447,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
                                   candidates.sort((a, b) => b.watchDate.compareTo(a.watchDate));
                                   final latestRecord = candidates.first;
-                                  
+
                                   openDiaryPopup(context, latestRecord);
                                 },
                               );
@@ -465,9 +464,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                               oneLiner: r.oneLiner ?? '',
                               dateText: _formatDate(r.watchDate),
                               isRewatch: isRewatch,
-                              onTap: () {
-                                openDiaryPopup(context, r);
-                              },
+                              onTap: () => openDiaryPopup(context, r),
                             );
                           },
                         ),
