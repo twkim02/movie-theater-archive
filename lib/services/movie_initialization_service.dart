@@ -4,6 +4,7 @@ import '../api/tmdb_mapper.dart';
 import '../repositories/movie_repository.dart';
 import '../utils/env_loader.dart';
 import '../models/movie.dart';
+import 'lottecinema_movie_checker.dart';
 
 /// 영화 데이터 초기화 서비스
 /// 
@@ -60,19 +61,49 @@ class MovieInitializationService {
           // 상세 정보 가져오기 (runtime 등)
           final detail = await client.getMovieDetails(tmdbMovie.id);
           
+          // TMDb에서는 현재 상영 중이므로 기본적으로 true
+          // 하지만 롯데시네마에서도 상영 중인지 확인하여 보완
+          var isRecent = true;
+          
+          // 롯데시네마에서 상영 중인지 확인 (에러 발생해도 계속 진행)
+          try {
+            final isPlayingInLotte = await LotteCinemaMovieChecker.isPlayingInLotteCinema(detail.title);
+            if (isPlayingInLotte) {
+              isRecent = true;
+              debugPrint('✅ 롯데시네마 상영 확인: "${detail.title}"');
+            }
+          } catch (e) {
+            // 롯데시네마 확인 실패해도 계속 진행 (TMDb 기준으로 true 유지)
+            debugPrint('⚠️ 롯데시네마 상영 여부 확인 실패 (${detail.title}): $e');
+          }
+          
           // 상세 정보를 Movie 모델로 변환
           final movie = TmdbMapper.toMovieFromDetail(
             detail,
-            isRecent: true, // 현재 상영 중이므로 true
+            isRecent: isRecent,
           );
           
           moviesWithDetails.add(movie);
         } catch (e) {
           // 상세 정보 가져오기 실패 시 기본 정보만 사용
           debugPrint('영화 상세 정보 가져오기 실패 (${tmdbMovie.id}): $e');
+          
+          // 기본 정보로도 롯데시네마 확인 시도
+          var isRecent = true;
+          try {
+            final isPlayingInLotte = await LotteCinemaMovieChecker.isPlayingInLotteCinema(tmdbMovie.title);
+            if (isPlayingInLotte) {
+              isRecent = true;
+              debugPrint('✅ 롯데시네마 상영 확인 (기본 정보): "${tmdbMovie.title}"');
+            }
+          } catch (e) {
+            // 롯데시네마 확인 실패해도 계속 진행
+            debugPrint('⚠️ 롯데시네마 상영 여부 확인 실패 (기본 정보, ${tmdbMovie.title}): $e');
+          }
+          
           final movie = TmdbMapper.toMovie(
             tmdbMovie,
-            isRecent: true,
+            isRecent: isRecent,
           );
           moviesWithDetails.add(movie);
         }
@@ -122,19 +153,48 @@ class MovieInitializationService {
             // 상세 정보 가져오기 (runtime 등)
             final detail = await client.getMovieDetails(tmdbMovie.id);
             
+            // 인기 영화는 기본적으로 false이지만, 롯데시네마에서 상영 중인지 확인
+            var isRecent = false;
+            
+            // 롯데시네마에서 상영 중인지 확인 (에러 발생해도 계속 진행)
+            try {
+              final isPlayingInLotte = await LotteCinemaMovieChecker.isPlayingInLotteCinema(detail.title);
+              if (isPlayingInLotte) {
+                isRecent = true;
+                debugPrint('✅ 롯데시네마 상영 확인 (인기 영화): "${detail.title}" → isRecent = true');
+              }
+            } catch (e) {
+              // 롯데시네마 확인 실패해도 계속 진행 (기본값 false 유지)
+              debugPrint('⚠️ 롯데시네마 상영 여부 확인 실패 (${detail.title}): $e');
+            }
+            
             // 상세 정보를 Movie 모델로 변환
             final movie = TmdbMapper.toMovieFromDetail(
               detail,
-              isRecent: false, // 인기 영화는 과거 명작 포함
+              isRecent: isRecent,
             );
             
             moviesWithDetails.add(movie);
           } catch (e) {
             // 상세 정보 가져오기 실패 시 기본 정보만 사용
             debugPrint('영화 상세 정보 가져오기 실패 (${tmdbMovie.id}): $e');
+            
+            // 기본 정보로도 롯데시네마 확인 시도
+            var isRecent = false;
+            try {
+              final isPlayingInLotte = await LotteCinemaMovieChecker.isPlayingInLotteCinema(tmdbMovie.title);
+              if (isPlayingInLotte) {
+                isRecent = true;
+                debugPrint('✅ 롯데시네마 상영 확인 (기본 정보, 인기 영화): "${tmdbMovie.title}" → isRecent = true');
+              }
+            } catch (e) {
+              // 롯데시네마 확인 실패해도 계속 진행
+              debugPrint('⚠️ 롯데시네마 상영 여부 확인 실패 (기본 정보, ${tmdbMovie.title}): $e');
+            }
+            
             final movie = TmdbMapper.toMovie(
               tmdbMovie,
-              isRecent: false,
+              isRecent: isRecent,
             );
             moviesWithDetails.add(movie);
           }
