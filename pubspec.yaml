@@ -51,15 +51,28 @@ dev_dependencies:
 
   hive_generator: ^2.0.1
   build_runner: ^2.4.9
+  
+  # 앱 아이콘 생성
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/fonts/
+    - assets/moviary_icon.png
     - env.json
 
   fonts:
     - family: TypoCrayon
       fonts:
         - asset: assets/fonts/Typo_Crayon B.ttf
+
+# 앱 아이콘 설정
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/moviary_icon.png"
+  min_sdk_android: 21 # Android 5.0 이상
+  adaptive_icon_background: "#FEFCF9"
+  adaptive_icon_foreground: "assets/moviary_icon.png"
