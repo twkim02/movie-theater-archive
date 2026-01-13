@@ -17,6 +17,7 @@ import '../models/lottecinema_data.dart';
 import '../services/theater_schedule_service.dart';
 import '../models/theater.dart';
 import '../services/lottecinema_movie_checker.dart';
+import '../widgets/theater_card.dart';
 
 /// 개발/테스트용 화면
 /// 작성한 코드가 제대로 작동하는지 시각적으로 확인할 수 있습니다.
@@ -2213,6 +2214,213 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                   const SizedBox(height: 12),
                   const Text(
                     '💡 TMDb 초기화 시 롯데시네마 상영 여부를 확인하여\n   isRecent 플래그를 보완합니다.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // 5단계: UI 통합 및 최적화 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '5. UI 통합 및 최적화 테스트',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // TheaterCard 위젯 테스트
+                  const Text(
+                    '5.1 TheaterCard 위젯 테스트',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // 롯데시네마 영화관 카드 (상영 시간표 있음)
+                  FutureBuilder<List<Showtime>>(
+                    future: TheaterScheduleService.getLotteCinemaSchedule(
+                      theaterName: '롯데시네마 대전센트럴',
+                      movieTitle: '만약에 우리',
+                      date: DateTime.now(),
+                    ),
+                    builder: (context, snapshot) {
+                      final showtimes = snapshot.data ?? [];
+                      final lotteTheater = Theater(
+                        id: 'test_lotte',
+                        name: '롯데시네마 대전센트럴',
+                        address: '대전광역시 중구 중앙로 101',
+                        lat: 36.3281,
+                        lng: 127.4225,
+                        distanceKm: 1.2,
+                        showtimes: showtimes,
+                        bookingUrl: 'https://search.naver.com/search.naver?query=롯데시네마+대전센트럴',
+                      );
+                      
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '롯데시네마 영화관 (상영 시간표 있음):',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 8),
+                          TheaterCard(t: lotteTheater),
+                          const SizedBox(height: 8),
+                          _buildTestResultItem(
+                            '롯데시네마 라벨 표시',
+                            lotteTheater.name.contains('롯데'),
+                            lotteTheater.showtimes.isNotEmpty ? '실시간 상영 시간표 표시됨' : '상영 시간표 없음',
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // CGV 영화관 카드 (상영 시간표 없음)
+                  const Text(
+                    'CGV 영화관 (상영 시간표 없음):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  TheaterCard(
+                    t: Theater(
+                      id: 'test_cgv',
+                      name: 'CGV 대전',
+                      address: '대전광역시 중구 중앙로 102',
+                      lat: 36.3282,
+                      lng: 127.4226,
+                      distanceKm: 1.5,
+                      showtimes: const [],
+                      bookingUrl: 'https://search.naver.com/search.naver?query=CGV+대전',
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // 캐시 관리 테스트
+                  const Text(
+                    '5.2 캐시 관리 테스트',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  StatefulBuilder(
+                    builder: (context, setState) {
+                      final cacheStats = TheaterScheduleService.getCacheStats();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTestResultItem(
+                            '캐시 통계',
+                            true,
+                            '전체: ${cacheStats['total']}개, 유효: ${cacheStats['valid']}개, 만료: ${cacheStats['expired']}개',
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  TheaterScheduleService.cleanExpiredCache();
+                                  final newStats = TheaterScheduleService.getCacheStats();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('만료된 캐시 정리 완료! (유효: ${newStats['valid']}개)'),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                  setState(() {}); // 화면 새로고침
+                                },
+                                icon: const Icon(Icons.cleaning_services, size: 18),
+                                label: const Text('만료된 캐시 정리'),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  TheaterScheduleService.clearCache();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('캐시 전체 초기화 완료!'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                  setState(() {}); // 화면 새로고침
+                                },
+                                icon: const Icon(Icons.delete_outline, size: 18),
+                                label: const Text('캐시 전체 초기화'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // 에러 처리 테스트
+                  const Text(
+                    '5.3 에러 처리 테스트',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  FutureBuilder<List<Showtime>>(
+                    future: TheaterScheduleService.getLotteCinemaSchedule(
+                      theaterName: '존재하지 않는 영화관',
+                      movieTitle: '존재하지 않는 영화',
+                      date: DateTime.now(),
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      final showtimes = snapshot.data ?? [];
+                      return _buildTestResultItem(
+                        '에러 발생 시 빈 리스트 반환',
+                        showtimes.isEmpty,
+                        showtimes.isEmpty ? '정상 (빈 리스트)' : '오류 (${showtimes.length}개)',
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  FutureBuilder<List<Showtime>>(
+                    future: TheaterScheduleService.getLotteCinemaSchedule(
+                      theaterName: 'CGV 대전',
+                      movieTitle: '만약에 우리',
+                      date: DateTime.now(),
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final showtimes = snapshot.data ?? [];
+                      return _buildTestResultItem(
+                        '롯데시네마가 아닌 영화관 처리',
+                        showtimes.isEmpty,
+                        showtimes.isEmpty ? '정상 (빈 리스트)' : '오류 (${showtimes.length}개)',
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  const Text(
+                    '💡 에러 발생 시 앱이 멈추지 않고 조용히 처리됩니다.\n   네트워크 오류나 API 오류 시에도 빈 리스트를 반환합니다.',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey,

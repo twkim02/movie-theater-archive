@@ -56,6 +56,9 @@ Future<List<Theater>> fetchNearbyTheatersReal({
     size: 15,
   );
 
+  // 만료된 캐시 정리 (메모리 관리)
+  TheaterScheduleService.cleanExpiredCache();
+
   final theaters = await Future.wait(docs.map((d) async {
     final name = (d['place_name'] ?? '').toString();
     final address = (d['road_address_name'] ?? d['address_name'] ?? '').toString();
@@ -86,6 +89,7 @@ Future<List<Theater>> fetchNearbyTheatersReal({
         );
       } catch (e) {
         // 에러 발생 시 빈 리스트 유지 (조용히 처리)
+        // 네트워크 오류나 API 오류 시에도 앱이 멈추지 않도록 함
         showtimes = [];
       }
     }

@@ -121,6 +121,29 @@ class TheaterScheduleService {
   static void cleanExpiredCache() {
     _cache.removeWhere((key, value) => value.isExpired);
   }
+
+  /// 캐시 통계를 반환합니다.
+  /// 
+  /// 테스트 및 디버깅용입니다.
+  static Map<String, dynamic> getCacheStats() {
+    final total = _cache.length;
+    var expired = 0;
+    var valid = 0;
+
+    for (final entry in _cache.entries) {
+      if (entry.value.isExpired) {
+        expired++;
+      } else {
+        valid++;
+      }
+    }
+
+    return {
+      'total': total,
+      'valid': valid,
+      'expired': expired,
+    };
+  }
 }
 
 /// 캐시된 상영 시간표 정보

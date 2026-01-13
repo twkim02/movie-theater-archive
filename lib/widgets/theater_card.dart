@@ -67,7 +67,26 @@ class TheaterCard extends StatelessWidget {
             const SizedBox(height: 10),
 
             // 상영시간표 칩(있으면 보여주기)
-            if (t.showtimes.isNotEmpty)
+            if (t.showtimes.isNotEmpty) ...[
+              // 롯데시네마인 경우 실제 상영 시간표 표시
+              if (t.name.contains('롯데시네마') || t.name.contains('롯데'))
+                Container(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.schedule, size: 14, color: Colors.blue.shade700),
+                      const SizedBox(width: 4),
+                      Text(
+                        '실시간 상영 시간표',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -75,9 +94,13 @@ class TheaterCard extends StatelessWidget {
                   return Chip(
                     label: Text('${s.start}~${s.end} · ${s.screen}'),
                     visualDensity: VisualDensity.compact,
+                    backgroundColor: (t.name.contains('롯데시네마') || t.name.contains('롯데'))
+                        ? Colors.blue.shade50
+                        : null,
                   );
                 }).toList(),
-              )
+              ),
+            ]
             else
               Text(
                 '시간표는 예매/시간표에서 확인할 수 있어요.',
