@@ -824,9 +824,14 @@ class _RecommendCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(999),
                             ),
                           ),
-                          child: const Text(
-                            '✍️일기 쓰기',
-                            style: TextStyle(fontWeight: FontWeight.w900),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: const Text(
+                              '✍️일기 쓰기',
+                              style: TextStyle(fontWeight: FontWeight.w900),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                       ),

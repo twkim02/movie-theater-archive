@@ -2,9 +2,10 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../data/record_store.dart';
 import '../models/record.dart';
+import '../state/app_state.dart';
 import '../widgets/add_record_sheet.dart';
 
 /// ✅ 팝업 열기 함수 (Record를 받음)
@@ -104,7 +105,8 @@ class MovieDiaryPopup extends StatelessWidget {
     );
 
     if (result == true) {
-      await RecordStore.delete(record.id);
+      final appState = context.read<AppState>();
+      await appState.deleteRecord(record.id);
       Navigator.of(context).pop(); // 팝업 닫기
     }
   }

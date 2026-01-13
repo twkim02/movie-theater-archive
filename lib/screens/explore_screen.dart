@@ -319,7 +319,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           decoration: const InputDecoration(
                             isDense: true,
                             icon: Icon(Icons.search, size: 20),
-                            hintText: "영화 제목을 검색해보세요 (TMDb)",
+                            hintText: "영화 제목을 검색해보세요",
                             border: InputBorder.none,
                           ),
                         ),
@@ -436,7 +436,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         decoration: const InputDecoration(
                           isDense: true,
                           icon: Icon(Icons.search, size: 20),
-                          hintText: "영화 제목을 검색해보세요 (TMDb)",
+                          hintText: "영화 제목을 검색해보세요",
                           border: InputBorder.none,
                         ),
                       ),
@@ -708,9 +708,14 @@ class MovieCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            child: const Text(
-                              '✍️일기 쓰기',
-                              style: TextStyle(fontWeight: FontWeight.w800),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: const Text(
+                                '✍️일기 쓰기',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
                         ),
@@ -748,9 +753,14 @@ class MovieCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: const Text(
-                          '✍️일기 쓰기',
-                          style: TextStyle(fontWeight: FontWeight.w800),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: const Text(
+                            '✍️일기 쓰기',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
                     ),
