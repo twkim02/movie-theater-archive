@@ -10,6 +10,10 @@ import '../repositories/movie_repository.dart';
 import '../services/movie_db_initializer.dart';
 import '../services/movie_initialization_service.dart';
 import '../services/movie_update_service.dart';
+import '../utils/csv_parser.dart';
+import '../services/movie_title_matcher.dart';
+import '../api/lottecinema_client.dart';
+import '../models/lottecinema_data.dart';
 
 /// 개발/테스트용 화면
 /// 작성한 코드가 제대로 작동하는지 시각적으로 확인할 수 있습니다.
@@ -29,7 +33,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -57,6 +61,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
             Tab(icon: Icon(Icons.bar_chart), text: '통계'),
             Tab(icon: Icon(Icons.cloud), text: 'TMDb API'),
             Tab(icon: Icon(Icons.storage), text: 'DB 테스트'),
+            Tab(icon: Icon(Icons.theater_comedy), text: '롯데시네마'),
           ],
         ),
       ),
@@ -70,6 +75,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           _buildStatisticsTab(context, appState),
           _buildTmdbApiTab(context),
           _buildDbTestTab(context, appState),
+          _buildLotteCinemaTab(context),
         ],
       ),
     );
@@ -1801,6 +1807,325 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                 dense: true,
               );
             },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========== 롯데시네마 테스트 탭 ==========
+  Widget _buildLotteCinemaTab(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '롯데시네마 통합 테스트',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          
+          // CSV 파서 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '1. CSV 파서 테스트',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<List<LotteCinemaMovie>>(
+                    future: CsvParser.getNowMovies(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      if (snapshot.hasError) {
+                        return Text('오류: ${snapshot.error}');
+                      }
+                      final movies = snapshot.data ?? [];
+                      return _buildTestResultItem(
+                        '현재 상영 중인 영화 목록',
+                        movies.isNotEmpty,
+                        '${movies.length}개',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<List<LotteCinemaTheater>>(
+                    future: CsvParser.getTheaters(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      if (snapshot.hasError) {
+                        return Text('오류: ${snapshot.error}');
+                      }
+                      final theaters = snapshot.data ?? [];
+                      return _buildTestResultItem(
+                        '영화관 목록',
+                        theaters.isNotEmpty,
+                        '${theaters.length}개',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<LotteCinemaTheater?>(
+                    future: CsvParser.findTheaterByName('대전센트럴'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final theater = snapshot.data;
+                      return _buildTestResultItem(
+                        '영화관 검색 (대전센트럴)',
+                        theater != null,
+                        theater?.element ?? '없음',
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // 영화 제목 매칭 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '2. 영화 제목 매칭 테스트',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<LotteCinemaMovie?>(
+                    future: MovieTitleMatcher.findLotteCinemaMovie('만약에 우리'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      final movie = snapshot.data;
+                      return _buildTestResultItem(
+                        '정확한 매칭 (만약에 우리)',
+                        movie != null,
+                        movie?.movieName ?? '없음',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<LotteCinemaMovie?>(
+                    future: MovieTitleMatcher.findLotteCinemaMovie('아바타'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final movie = snapshot.data;
+                      return _buildTestResultItem(
+                        '부분 매칭 (아바타)',
+                        movie != null,
+                        movie?.movieName ?? '없음',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<bool>(
+                    future: MovieTitleMatcher.isPlayingInLotteCinema('만약에 우리'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final isPlaying = snapshot.data ?? false;
+                      return _buildTestResultItem(
+                        '상영 여부 확인',
+                        true,
+                        isPlaying ? '상영 중' : '상영 안 함',
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // API 클라이언트 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '3. 롯데시네마 API 클라이언트 테스트',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '상영 시간표 가져오는 중...');
+                      try {
+                        final client = LotteCinemaClient();
+                        final today = DateTime.now();
+                        final tomorrow = today.add(const Duration(days: 1));
+                        
+                        // 날짜 포맷팅 헬퍼 함수
+                        String formatDate(DateTime date) {
+                          return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                        }
+                        
+                        final todayDate = formatDate(today);
+                        final tomorrowDate = formatDate(tomorrow);
+                        
+                        // 대전센트럴 영화관 찾기
+                        final theater = await CsvParser.findTheaterByName('대전센트럴');
+                        if (theater == null) {
+                          Navigator.of(context).pop();
+                          _showError(context, '대전센트럴 영화관을 찾을 수 없습니다.');
+                          return;
+                        }
+                        
+                        // 만약에 우리 영화 찾기
+                        final movie = await MovieTitleMatcher.findLotteCinemaMovie('만약에 우리');
+                        if (movie == null) {
+                          Navigator.of(context).pop();
+                          _showError(context, '만약에 우리 영화를 찾을 수 없습니다.');
+                          return;
+                        }
+                        
+                        // 오늘과 내일 상영 시간표 가져오기
+                        final todaySchedules = await client.getMovieSchedule(
+                          cinemaId: theater.cinemaIdString,
+                          movieNo: movie.movieNo,
+                          playDate: todayDate,
+                        );
+                        
+                        final tomorrowSchedules = await client.getMovieSchedule(
+                          cinemaId: theater.cinemaIdString,
+                          movieNo: movie.movieNo,
+                          playDate: tomorrowDate,
+                        );
+                        
+                        Navigator.of(context).pop();
+                        
+                        final totalSchedules = todaySchedules.length + tomorrowSchedules.length;
+                        
+                        if (totalSchedules == 0) {
+                          _showError(context, '상영 시간표가 없습니다.\n(네트워크 오류이거나 해당 날짜에 상영하지 않을 수 있습니다.)');
+                        } else {
+                          _showSuccess(context, '총 ${totalSchedules}개의 상영 시간표를 가져왔습니다!\n(오늘: ${todaySchedules.length}개, 내일: ${tomorrowSchedules.length}개)');
+                          // 상세 정보 표시 (오늘과 내일 구분)
+                          _showSchedules(context, todaySchedules, tomorrowSchedules, todayDate, tomorrowDate);
+                        }
+                      } catch (e) {
+                        Navigator.of(context).pop();
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.schedule),
+                    label: const Text('상영 시간표 가져오기 (대전센트럴, 만약에 우리)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade100,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSchedules(
+    BuildContext context,
+    List<LotteCinemaSchedule> todaySchedules,
+    List<LotteCinemaSchedule> tomorrowSchedules,
+    String todayDate,
+    String tomorrowDate,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('상영 시간표'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              // 오늘 상영 시간표
+              if (todaySchedules.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, top: 8),
+                  child: Text(
+                    '📅 $todayDate (오늘)',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ),
+                ...todaySchedules.map((schedule) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text('${schedule.startTime} ~ ${schedule.endTime}'),
+                        subtitle: Text(
+                            '${schedule.screenNameKR} | 잔여: ${schedule.availableSeatCount}/${schedule.totalSeatCount}석'),
+                      ),
+                    )),
+                const SizedBox(height: 16),
+              ],
+              
+              // 내일 상영 시간표
+              if (tomorrowSchedules.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, top: 8),
+                  child: Text(
+                    '📅 $tomorrowDate (내일)',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                ),
+                ...tomorrowSchedules.map((schedule) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text('${schedule.startTime} ~ ${schedule.endTime}'),
+                        subtitle: Text(
+                            '${schedule.screenNameKR} | 잔여: ${schedule.availableSeatCount}/${schedule.totalSeatCount}석'),
+                      ),
+                    )),
+              ],
+              
+              // 둘 다 비어있는 경우
+              if (todaySchedules.isEmpty && tomorrowSchedules.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    '상영 시간표가 없습니다.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+            ],
           ),
         ),
         actions: [
