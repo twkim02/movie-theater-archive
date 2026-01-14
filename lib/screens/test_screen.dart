@@ -18,6 +18,8 @@ import '../services/theater_schedule_service.dart';
 import '../models/theater.dart';
 import '../services/lottecinema_movie_checker.dart';
 import '../widgets/theater_card.dart';
+import '../api/megabox_client.dart';
+import '../models/megabox_data.dart';
 
 /// 개발/테스트용 화면
 /// 작성한 코드가 제대로 작동하는지 시각적으로 확인할 수 있습니다.
@@ -37,7 +39,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this);
+    _tabController = TabController(length: 9, vsync: this);
   }
 
   @override
@@ -66,6 +68,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
             Tab(icon: Icon(Icons.cloud), text: 'TMDb API'),
             Tab(icon: Icon(Icons.storage), text: 'DB 테스트'),
             Tab(icon: Icon(Icons.theater_comedy), text: '롯데시네마'),
+            Tab(icon: Icon(Icons.movie_filter), text: '메가박스'),
           ],
         ),
       ),
@@ -80,6 +83,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           _buildTmdbApiTab(context),
           _buildDbTestTab(context, appState),
           _buildLotteCinemaTab(context),
+          _buildMegaboxTab(context),
         ],
       ),
     );
@@ -2430,6 +2434,485 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========== 메가박스 테스트 탭 ==========
+  Widget _buildMegaboxTab(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '메가박스 통합 테스트',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          
+          // CSV 파서 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '1. CSV 파서 테스트',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<List<MegaboxMovie>>(
+                    future: CsvParser.getMegaboxMovies(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      if (snapshot.hasError) {
+                        return Text('오류: ${snapshot.error}');
+                      }
+                      final movies = snapshot.data ?? [];
+                      return _buildTestResultItem(
+                        '메가박스 영화 목록',
+                        movies.isNotEmpty,
+                        '${movies.length}개',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<List<MegaboxTheater>>(
+                    future: CsvParser.getMegaboxTheaters(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      if (snapshot.hasError) {
+                        return Text('오류: ${snapshot.error}');
+                      }
+                      final theaters = snapshot.data ?? [];
+                      return _buildTestResultItem(
+                        '메가박스 영화관 목록',
+                        theaters.isNotEmpty,
+                        '${theaters.length}개',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<MegaboxTheater?>(
+                    future: CsvParser.findMegaboxTheaterByName('대전중앙로'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final theater = snapshot.data;
+                      return _buildTestResultItem(
+                        '영화관 검색 (대전중앙로)',
+                        theater != null,
+                        theater?.brchNm ?? '없음',
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // 영화 제목 매칭 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '2. 영화 제목 매칭 테스트',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<MegaboxMovie?>(
+                    future: MovieTitleMatcher.findMegaboxMovie('만약에 우리'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      final movie = snapshot.data;
+                      return _buildTestResultItem(
+                        '정확한 매칭 (만약에 우리)',
+                        movie != null,
+                        movie?.movieNm ?? '없음',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<MegaboxMovie?>(
+                    future: MovieTitleMatcher.findMegaboxMovie('아바타'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final movie = snapshot.data;
+                      return _buildTestResultItem(
+                        '부분 매칭 (아바타)',
+                        movie != null,
+                        movie?.movieNm ?? '없음',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<bool>(
+                    future: MovieTitleMatcher.isPlayingInMegabox('만약에 우리'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final isPlaying = snapshot.data ?? false;
+                      return _buildTestResultItem(
+                        '상영 여부 확인',
+                        true,
+                        isPlaying ? '상영 중' : '상영 안 함',
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // 메가박스 API 클라이언트 테스트
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '3. 메가박스 API 클라이언트 테스트',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '상영 시간표 가져오는 중...');
+                      try {
+                        final client = MegaboxClient();
+                        final today = DateTime.now();
+                        final tomorrow = today.add(const Duration(days: 1));
+                        
+                        // 날짜 포맷팅 헬퍼 함수 (YYYYMMDD 형식)
+                        String formatDate(DateTime date) {
+                          return '${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}';
+                        }
+                        
+                        final todayDate = formatDate(today);
+                        final tomorrowDate = formatDate(tomorrow);
+                        
+                        // 대전중앙로 영화관 찾기
+                        final theater = await CsvParser.findMegaboxTheaterByName('대전중앙로');
+                        if (theater == null) {
+                          Navigator.of(context).pop();
+                          _showError(context, '대전중앙로 영화관을 찾을 수 없습니다.');
+                          return;
+                        }
+                        
+                        // 만약에 우리 영화 찾기
+                        final movie = await MovieTitleMatcher.findMegaboxMovie('만약에 우리');
+                        if (movie == null) {
+                          Navigator.of(context).pop();
+                          _showError(context, '만약에 우리 영화를 찾을 수 없습니다.');
+                          return;
+                        }
+                        
+                        // 오늘과 내일 상영 시간표 가져오기
+                        final todaySchedules = await client.getMovieSchedule(
+                          brchNo: theater.brchNo,
+                          movieNo: movie.movieNo,
+                          playDe: todayDate,
+                        );
+                        
+                        final tomorrowSchedules = await client.getMovieSchedule(
+                          brchNo: theater.brchNo,
+                          movieNo: movie.movieNo,
+                          playDe: tomorrowDate,
+                        );
+                        
+                        Navigator.of(context).pop();
+                        
+                        final totalSchedules = todaySchedules.length + tomorrowSchedules.length;
+                        
+                        if (totalSchedules == 0) {
+                          _showError(context, '상영 시간표가 없습니다.\n(네트워크 오류이거나 해당 날짜에 상영하지 않을 수 있습니다.)');
+                        } else {
+                          _showSuccess(context, '총 ${totalSchedules}개의 상영 시간표를 가져왔습니다!\n(오늘: ${todaySchedules.length}개, 내일: ${tomorrowSchedules.length}개)');
+                          // 상세 정보 표시 (오늘과 내일 구분)
+                          _showMegaboxSchedules(context, todaySchedules, tomorrowSchedules, todayDate, tomorrowDate);
+                        }
+                      } catch (e) {
+                        Navigator.of(context).pop();
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.schedule),
+                    label: const Text('상영 시간표 가져오기 (대전중앙로, 만약에 우리)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade100,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // 추가 테스트: 다양한 케이스
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '4. 추가 테스트 케이스',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // 다양한 영화 제목 매칭 테스트
+                  const Text(
+                    '4.1 다양한 영화 제목 매칭',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  FutureBuilder<MegaboxMovie?>(
+                    future: MovieTitleMatcher.findMegaboxMovie('프로젝트 Y'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final movie = snapshot.data;
+                      return _buildTestResultItem(
+                        '다른 영화 매칭 (프로젝트 Y)',
+                        movie != null,
+                        movie?.movieNm ?? '없음',
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  FutureBuilder<MegaboxMovie?>(
+                    future: MovieTitleMatcher.findMegaboxMovie('존재하지 않는 영화 12345'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final movie = snapshot.data;
+                      return _buildTestResultItem(
+                        '존재하지 않는 영화',
+                        movie == null,
+                        movie == null ? '정상 (없음)' : '오류 (${movie.movieNm})',
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // 다양한 영화관 검색 테스트
+                  const Text(
+                    '4.2 다양한 영화관 검색',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  FutureBuilder<MegaboxTheater?>(
+                    future: CsvParser.findMegaboxTheaterByName('강남'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final theater = snapshot.data;
+                      return _buildTestResultItem(
+                        '영화관 검색 (강남)',
+                        theater != null,
+                        theater?.brchNm ?? '없음',
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  FutureBuilder<MegaboxTheater?>(
+                    future: CsvParser.findMegaboxTheaterByName('메가박스 대전'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final theater = snapshot.data;
+                      return _buildTestResultItem(
+                        '영화관 검색 (메가박스 대전)',
+                        theater != null,
+                        theater?.brchNm ?? '없음',
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  FutureBuilder<MegaboxTheater?>(
+                    future: CsvParser.findMegaboxTheaterByName('존재하지 않는 영화관'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final theater = snapshot.data;
+                      return _buildTestResultItem(
+                        '존재하지 않는 영화관',
+                        theater == null,
+                        theater == null ? '정상 (없음)' : '오류 (${theater.brchNm})',
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // 에러 처리 테스트
+                  const Text(
+                    '4.3 에러 처리 테스트',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, '에러 처리 테스트 중...');
+                      try {
+                        final client = MegaboxClient();
+                        // 존재하지 않는 영화관과 영화로 테스트
+                        final schedules = await client.getMovieSchedule(
+                          brchNo: '9999', // 존재하지 않는 영화관
+                          movieNo: '99999999', // 존재하지 않는 영화
+                          playDe: '20260114',
+                        );
+                        Navigator.of(context).pop();
+                        _showSuccess(context, '에러 처리 정상: 빈 리스트 반환 (${schedules.length}개)');
+                      } catch (e) {
+                        Navigator.of(context).pop();
+                        _showError(context, '에러 처리 실패: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.error_outline, size: 18),
+                    label: const Text('에러 처리 테스트 (존재하지 않는 데이터)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade100,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  const Text(
+                    '💡 에러 발생 시 앱이 멈추지 않고 조용히 처리됩니다.\n   빈 리스트를 반환하여 앱이 정상적으로 동작합니다.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMegaboxSchedules(
+    BuildContext context,
+    List<MegaboxSchedule> todaySchedules,
+    List<MegaboxSchedule> tomorrowSchedules,
+    String todayDate,
+    String tomorrowDate,
+  ) {
+    // 날짜 포맷팅 (YYYYMMDD -> YYYY-MM-DD)
+    String formatDate(String dateStr) {
+      if (dateStr.length == 8) {
+        return '${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}';
+      }
+      return dateStr;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('상영 시간표'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              // 오늘 상영 시간표
+              if (todaySchedules.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, top: 8),
+                  child: Text(
+                    '📅 ${formatDate(todayDate)} (오늘)',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ),
+                ...todaySchedules.map((schedule) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text('${schedule.playStartTime} ~ ${schedule.playEndTime}'),
+                        subtitle: Text(
+                            '${schedule.theabExpoNm} | 잔여: ${schedule.restSeatCnt}/${schedule.totSeatCnt}석'),
+                      ),
+                    )),
+                const SizedBox(height: 16),
+              ],
+              
+              // 내일 상영 시간표
+              if (tomorrowSchedules.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, top: 8),
+                  child: Text(
+                    '📅 ${formatDate(tomorrowDate)} (내일)',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                ),
+                ...tomorrowSchedules.map((schedule) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text('${schedule.playStartTime} ~ ${schedule.playEndTime}'),
+                        subtitle: Text(
+                            '${schedule.theabExpoNm} | 잔여: ${schedule.restSeatCnt}/${schedule.totSeatCnt}석'),
+                      ),
+                    )),
+              ],
+              
+              if (todaySchedules.isEmpty && tomorrowSchedules.isEmpty)
+                const Text('상영 시간표가 없습니다.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
           ),
         ],
       ),

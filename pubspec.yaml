@@ -63,6 +63,7 @@ flutter:
     - assets/moviary_icon.png
     - assets/new_moviary_icon.png
     - assets/lottecinema/
+    - assets/megabox/
     - env.json
 
   fonts:
