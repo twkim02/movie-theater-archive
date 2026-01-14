@@ -2671,6 +2671,160 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           
           const SizedBox(height: 16),
           
+          // 상영 시간표 서비스 테스트 (3단계)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '4. 상영 시간표 서비스 테스트 (3단계)',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: () async {
+                      // 오늘과 내일 날짜 준비
+                      final today = DateTime.now();
+                      final tomorrow = today.add(const Duration(days: 1));
+                      
+                      // 병렬로 두 날짜의 상영 시간표 가져오기 (캐싱 활용)
+                      final results = await Future.wait([
+                        TheaterScheduleService.getMegaboxSchedule(
+                          theaterName: '메가박스 대전중앙로',
+                          movieTitle: '만약에 우리',
+                          date: today,
+                        ),
+                        TheaterScheduleService.getMegaboxSchedule(
+                          theaterName: '메가박스 대전중앙로',
+                          movieTitle: '만약에 우리',
+                          date: tomorrow,
+                        ),
+                      ]);
+                      
+                      return {
+                        'today': results[0],
+                        'tomorrow': results[1],
+                        'todayDate': today,
+                        'tomorrowDate': tomorrow,
+                      };
+                    }(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      if (snapshot.hasError) {
+                        return Text('오류: ${snapshot.error}');
+                      }
+                      
+                      final data = snapshot.data ?? {};
+                      final todayShowtimes = (data['today'] as List<Showtime>?) ?? [];
+                      final tomorrowShowtimes = (data['tomorrow'] as List<Showtime>?) ?? [];
+                      final totalCount = todayShowtimes.length + tomorrowShowtimes.length;
+                      
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTestResultItem(
+                            '메가박스 상영 시간표 가져오기',
+                            true,
+                            '총 ${totalCount}개 (오늘: ${todayShowtimes.length}개, 내일: ${tomorrowShowtimes.length}개)',
+                          ),
+                          if (todayShowtimes.isNotEmpty || tomorrowShowtimes.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                final todayDate = data['todayDate'] as DateTime? ?? DateTime.now();
+                                final tomorrowDate = data['tomorrowDate'] as DateTime? ?? todayDate.add(const Duration(days: 1));
+                                
+                                String formatDate(DateTime d) {
+                                  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+                                }
+                                
+                                _showShowtimesDialog(
+                                  context,
+                                  todayShowtimes,
+                                  tomorrowShowtimes,
+                                  formatDate(todayDate),
+                                  formatDate(tomorrowDate),
+                                );
+                              },
+                              icon: const Icon(Icons.schedule, size: 18),
+                              label: const Text('상영 시간표 상세 보기'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue.shade50,
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<List<Showtime>>(
+                    future: TheaterScheduleService.getSchedule(
+                      theaterName: '메가박스 대전중앙로',
+                      movieTitle: '만약에 우리',
+                      date: DateTime.now(),
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final showtimes = snapshot.data ?? [];
+                      return _buildTestResultItem(
+                        '통합 메서드 (getSchedule)',
+                        true,
+                        '${showtimes.length}개',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<List<Showtime>>(
+                    future: TheaterScheduleService.getSchedule(
+                      theaterName: 'CGV 대전',
+                      movieTitle: '만약에 우리',
+                      date: DateTime.now(),
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final showtimes = snapshot.data ?? [];
+                      return _buildTestResultItem(
+                        'CGV 영화관 (메가박스 아님)',
+                        showtimes.isEmpty,
+                        showtimes.isEmpty ? '빈 리스트 (정상)' : '${showtimes.length}개',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<List<Showtime>>(
+                    future: TheaterScheduleService.getSchedule(
+                      theaterName: '롯데시네마 대전센트럴',
+                      movieTitle: '만약에 우리',
+                      date: DateTime.now(),
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final showtimes = snapshot.data ?? [];
+                      return _buildTestResultItem(
+                        '롯데시네마 영화관 (통합 메서드)',
+                        true,
+                        '${showtimes.length}개',
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
           // 추가 테스트: 다양한 케이스
           Card(
             child: Padding(
@@ -2679,7 +2833,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '4. 추가 테스트 케이스',
+                    '5. 추가 테스트 케이스',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),

@@ -27,6 +27,15 @@ class TheaterCard extends StatelessWidget {
     return 'https://map.kakao.com/link/to/$name,${t.lat},${t.lng}';
   }
 
+  /// 지원되는 영화관인지 확인합니다 (롯데시네마 또는 메가박스).
+  bool _isSupportedTheater(String theaterName) {
+    final normalized = theaterName.toLowerCase();
+    return normalized.contains('롯데시네마') || 
+           normalized.contains('롯데') ||
+           normalized.contains('메가박스') || 
+           normalized.contains('메가');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -68,8 +77,8 @@ class TheaterCard extends StatelessWidget {
 
             // 상영시간표 칩(있으면 보여주기)
             if (t.showtimes.isNotEmpty) ...[
-              // 롯데시네마인 경우 실제 상영 시간표 표시
-              if (t.name.contains('롯데시네마') || t.name.contains('롯데'))
+              // 롯데시네마 또는 메가박스인 경우 실제 상영 시간표 표시
+              if (_isSupportedTheater(t.name))
                 Container(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
@@ -94,7 +103,7 @@ class TheaterCard extends StatelessWidget {
                   return Chip(
                     label: Text('${s.start}~${s.end} · ${s.screen}'),
                     visualDensity: VisualDensity.compact,
-                    backgroundColor: (t.name.contains('롯데시네마') || t.name.contains('롯데'))
+                    backgroundColor: _isSupportedTheater(t.name)
                         ? Colors.blue.shade50
                         : null,
                   );

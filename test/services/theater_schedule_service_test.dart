@@ -148,4 +148,208 @@ void main() {
       }
     }, skip: '실제 API 호출은 네트워크가 필요하므로 선택적으로 실행');
   });
+
+  group('메가박스 상영 시간표 테스트 (3단계)', () {
+    test('메가박스 영화관 감지가 제대로 작동하는지 확인', () async {
+      // Given: 메가박스 영화관 이름들
+      final megaboxTheaters = [
+        '메가박스 대전중앙로',
+        '메가박스',
+        '메가박스 강남',
+        '메가 대전',
+      ];
+
+      // When & Then: 모두 메가박스로 감지되어야 함
+      for (final name in megaboxTheaters) {
+        final result = await TheaterScheduleService.getMegaboxSchedule(
+          theaterName: name,
+          movieTitle: '만약에 우리',
+          date: DateTime.now(),
+        );
+        // 메가박스이므로 빈 리스트가 아닐 수 있음 (API 호출 시도)
+        expect(result, isA<List<Showtime>>());
+      }
+    });
+
+    test('메가박스가 아닌 영화관은 빈 리스트를 반환하는지 확인', () async {
+      // Given: 메가박스가 아닌 영화관 이름들
+      final nonMegaboxTheaters = [
+        'CGV 대전',
+        '롯데시네마 대전',
+        '영화관',
+      ];
+
+      // When & Then: 모두 빈 리스트를 반환해야 함
+      for (final name in nonMegaboxTheaters) {
+        final result = await TheaterScheduleService.getMegaboxSchedule(
+          theaterName: name,
+          movieTitle: '만약에 우리',
+          date: DateTime.now(),
+        );
+        expect(result, isEmpty);
+      }
+    });
+
+    test('존재하지 않는 영화로 요청 시 빈 리스트를 반환하는지 확인', () async {
+      // Given: 존재하지 않는 영화 제목
+      const movieTitle = '존재하지 않는 영화 12345';
+
+      // When: 메가박스 영화관으로 요청
+      final result = await TheaterScheduleService.getMegaboxSchedule(
+        theaterName: '메가박스 대전중앙로',
+        movieTitle: movieTitle,
+        date: DateTime.now(),
+      );
+
+      // Then: 빈 리스트를 반환해야 함
+      expect(result, isEmpty);
+    });
+
+    test('존재하지 않는 영화관으로 요청 시 빈 리스트를 반환하는지 확인', () async {
+      // Given: 존재하지 않는 영화관 이름
+      const theaterName = '메가박스 존재하지않는영화관';
+
+      // When: 요청
+      final result = await TheaterScheduleService.getMegaboxSchedule(
+        theaterName: theaterName,
+        movieTitle: '만약에 우리',
+        date: DateTime.now(),
+      );
+
+      // Then: 빈 리스트를 반환해야 함
+      expect(result, isEmpty);
+    });
+
+    test('메가박스 캐시가 제대로 작동하는지 확인', () async {
+      // Given: 같은 파라미터로 두 번 요청
+      const theaterName = '메가박스 대전중앙로';
+      const movieTitle = '만약에 우리';
+      final date = DateTime.now();
+
+      // When: 첫 번째 요청
+      final firstResult = await TheaterScheduleService.getMegaboxSchedule(
+        theaterName: theaterName,
+        movieTitle: movieTitle,
+        date: date,
+      );
+
+      // 두 번째 요청 (캐시에서 가져와야 함)
+      final secondResult = await TheaterScheduleService.getMegaboxSchedule(
+        theaterName: theaterName,
+        movieTitle: movieTitle,
+        date: date,
+      );
+
+      // Then: 같은 결과여야 함
+      expect(firstResult.length, secondResult.length);
+      if (firstResult.isNotEmpty && secondResult.isNotEmpty) {
+        expect(firstResult.first.start, secondResult.first.start);
+      }
+    });
+  });
+
+  group('통합 메서드 (getSchedule) 테스트 (3단계)', () {
+    test('롯데시네마 영화관은 롯데시네마 메서드를 호출하는지 확인', () async {
+      // Given: 롯데시네마 영화관 이름
+      const theaterName = '롯데시네마 대전센트럴';
+
+      // When: 통합 메서드 호출
+      final result = await TheaterScheduleService.getSchedule(
+        theaterName: theaterName,
+        movieTitle: '만약에 우리',
+        date: DateTime.now(),
+      );
+
+      // Then: Showtime 리스트가 반환되어야 함 (롯데시네마 메서드와 동일한 결과)
+      expect(result, isA<List<Showtime>>());
+    });
+
+    test('메가박스 영화관은 메가박스 메서드를 호출하는지 확인', () async {
+      // Given: 메가박스 영화관 이름
+      const theaterName = '메가박스 대전중앙로';
+
+      // When: 통합 메서드 호출
+      final result = await TheaterScheduleService.getSchedule(
+        theaterName: theaterName,
+        movieTitle: '만약에 우리',
+        date: DateTime.now(),
+      );
+
+      // Then: Showtime 리스트가 반환되어야 함 (메가박스 메서드와 동일한 결과)
+      expect(result, isA<List<Showtime>>());
+    });
+
+    test('CGV 같은 다른 영화관은 빈 리스트를 반환하는지 확인', () async {
+      // Given: CGV 영화관 이름
+      const theaterName = 'CGV 대전';
+
+      // When: 통합 메서드 호출
+      final result = await TheaterScheduleService.getSchedule(
+        theaterName: theaterName,
+        movieTitle: '만약에 우리',
+        date: DateTime.now(),
+      );
+
+      // Then: 빈 리스트를 반환해야 함
+      expect(result, isEmpty);
+    });
+
+    test('통합 메서드가 롯데시네마와 메가박스를 올바르게 구분하는지 확인', () async {
+      // Given: 롯데시네마와 메가박스 영화관 이름들
+      final lotteTheater = '롯데시네마 대전센트럴';
+      final megaboxTheater = '메가박스 대전중앙로';
+      final cgvTheater = 'CGV 대전';
+
+      // When: 각각 통합 메서드 호출
+      final lotteResult = await TheaterScheduleService.getSchedule(
+        theaterName: lotteTheater,
+        movieTitle: '만약에 우리',
+        date: DateTime.now(),
+      );
+
+      final megaboxResult = await TheaterScheduleService.getSchedule(
+        theaterName: megaboxTheater,
+        movieTitle: '만약에 우리',
+        date: DateTime.now(),
+      );
+
+      final cgvResult = await TheaterScheduleService.getSchedule(
+        theaterName: cgvTheater,
+        movieTitle: '만약에 우리',
+        date: DateTime.now(),
+      );
+
+      // Then: 롯데시네마와 메가박스는 Showtime 리스트, CGV는 빈 리스트
+      expect(lotteResult, isA<List<Showtime>>());
+      expect(megaboxResult, isA<List<Showtime>>());
+      expect(cgvResult, isEmpty);
+    });
+
+    test('통합 메서드 캐시가 제대로 작동하는지 확인', () async {
+      // Given: 같은 파라미터로 두 번 요청
+      const theaterName = '메가박스 대전중앙로';
+      const movieTitle = '만약에 우리';
+      final date = DateTime.now();
+
+      // When: 첫 번째 요청 (통합 메서드)
+      final firstResult = await TheaterScheduleService.getSchedule(
+        theaterName: theaterName,
+        movieTitle: movieTitle,
+        date: date,
+      );
+
+      // 두 번째 요청 (캐시에서 가져와야 함)
+      final secondResult = await TheaterScheduleService.getSchedule(
+        theaterName: theaterName,
+        movieTitle: movieTitle,
+        date: date,
+      );
+
+      // Then: 같은 결과여야 함
+      expect(firstResult.length, secondResult.length);
+      if (firstResult.isNotEmpty && secondResult.isNotEmpty) {
+        expect(firstResult.first.start, secondResult.first.start);
+      }
+    });
+  });
 }

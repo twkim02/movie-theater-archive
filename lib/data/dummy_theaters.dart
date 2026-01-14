@@ -78,11 +78,13 @@ Future<List<Theater>> fetchNearbyTheatersReal({
     // 예매/시간표는 네이버 검색으로 안전하게 연결
     final bookingQuery = '$name $movieTitle 상영시간표 ${_dateYmd(date)}';
 
-    // 롯데시네마 영화관인 경우 실제 상영 시간표 가져오기
+    // 롯데시네마 또는 메가박스 영화관인 경우 실제 상영 시간표 가져오기
     List<Showtime> showtimes = [];
-    if (name.contains('롯데시네마') || name.contains('롯데')) {
+    if (name.contains('롯데시네마') || name.contains('롯데') ||
+        name.contains('메가박스') || name.contains('메가')) {
       try {
-        showtimes = await TheaterScheduleService.getLotteCinemaSchedule(
+        // 통합 메서드 사용 (자동으로 롯데시네마 또는 메가박스 감지)
+        showtimes = await TheaterScheduleService.getSchedule(
           theaterName: name,
           movieTitle: movieTitle,
           date: date,
