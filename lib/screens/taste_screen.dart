@@ -45,14 +45,13 @@ class _TasteScreenState extends State<TasteScreen> {
               fit: BoxFit.cover,
             ),
           ),
-
           SafeArea(
             child: Consumer<AppState>(
               builder: (context, appState, _) {
                 final records = appState.records;
                 final now = DateTime.now();
 
-                // ✅ 전체 기반 (상단 통계/추이/추천은 전체 기록 기준)
+                // ✅ 전체 기반
                 final allRecords = records;
 
                 final totalCount = allRecords.length;
@@ -60,7 +59,7 @@ class _TasteScreenState extends State<TasteScreen> {
                     ? 0.0
                     : allRecords.map((r) => r.rating).reduce((a, b) => a + b) / totalCount;
 
-                // ✅ 선호 장르(대표 장르 1개)
+                // ✅ 선호 장르(대표 1개)
                 final Map<String, int> genreCount = {};
                 final Map<String, double> genreSum = {};
                 final Map<String, int> genreN = {};
@@ -93,7 +92,8 @@ class _TasteScreenState extends State<TasteScreen> {
 
                 // ✅ 장르 분포 도넛: range 적용 + 대표장르 1개만 카운트
                 final fromForPie = _rangeFrom(now);
-                final rangeRecords = records.where((r) => !r.watchDate.isBefore(fromForPie)).toList();
+                final rangeRecords =
+                    records.where((r) => !r.watchDate.isBefore(fromForPie)).toList();
 
                 final Map<String, int> rangeGenreCount = {};
                 void addRangeGenre(String g) {
@@ -124,23 +124,23 @@ class _TasteScreenState extends State<TasteScreen> {
                 final recs = _buildRecommendations(
                   favoriteGenre: favoriteGenre,
                   watchedIds: watchedIds,
-                  genreAvgRating: {
-                    for (final k in genreN.keys) k: genreSum[k]! / genreN[k]!
-                  },
+                  genreAvgRating: {for (final k in genreN.keys) k: genreSum[k]! / genreN[k]!},
                   allMoviesList: allMoviesList,
                   limit: 20,
                 );
 
                 return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  // ✅ top padding 줄임
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 18),
                   children: [
-                    const SizedBox(height: 6),
+                    // ✅ 헤더 위 여백 제거
+                    const SizedBox(height: 0),
 
-                    // ✅ 스크롤되는 상단 헤더
                     const Center(child: _TasteTopHeader()),
-                    const SizedBox(height: 14),
 
-                    // ✅ 통계카드 3개
+                    // ✅ 헤더 아래 간격 줄임
+                    const SizedBox(height: 8),
+
                     Row(
                       children: [
                         Expanded(
@@ -169,9 +169,9 @@ class _TasteScreenState extends State<TasteScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 14),
+                    // ✅ 섹션 간격 줄임
+                    const SizedBox(height: 10),
 
-                    // ✅ 장르 분포
                     _Panel(
                       title: '장르 분포',
                       trailing: Row(
@@ -200,9 +200,8 @@ class _TasteScreenState extends State<TasteScreen> {
                           : _GenreDonutLegendChart(data: pie),
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
 
-                    // ✅ 관람 추이
                     _Panel(
                       title: '관람 추이',
                       trailing: Row(
@@ -230,9 +229,9 @@ class _TasteScreenState extends State<TasteScreen> {
                                 )),
                     ),
 
-                    const SizedBox(height: 16),
+                    // ✅ 추천 섹션 위 간격 줄임
+                    const SizedBox(height: 12),
 
-                    // ✅ 추천 영화
                     Text(
                       '추천 영화',
                       style: TextStyle(
@@ -241,20 +240,19 @@ class _TasteScreenState extends State<TasteScreen> {
                         color: textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
 
                     if (recs.isEmpty)
                       const _EmptySmall(text: '추천할 영화가 아직 없어요.')
                     else
                       ...recs.map((m) {
                         final g = (m.genres.isEmpty) ? '기타' : m.genres.first;
-                        final reason =
-                            (favoriteGenre != '—' && m.genres.contains(favoriteGenre))
-                                ? '$favoriteGenre 취향 기반 추천'
-                                : '$g도 좋아하실 것 같아요';
+                        final reason = (favoriteGenre != '—' && m.genres.contains(favoriteGenre))
+                            ? '$favoriteGenre 취향 기반 추천'
+                            : '$g도 좋아하실 것 같아요';
 
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.only(bottom: 4), // ✅ 카드 간격 줄임
                           child: _RecommendCard(
                             movie: m,
                             reason: reason,
@@ -263,7 +261,7 @@ class _TasteScreenState extends State<TasteScreen> {
                         );
                       }),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
 
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -321,27 +319,19 @@ class _TasteScreenState extends State<TasteScreen> {
   }) {
     final candidates = allMoviesList.where((m) => !watchedIds.contains(m.id)).toList();
 
-    // 1) 선호 장르 우선 묶음
     final List<Movie> fav = (favoriteGenre != '—')
         ? candidates.where((m) => m.genres.contains(favoriteGenre)).toList()
         : <Movie>[];
 
-    fav.sort((a, b) => b.voteAverage.compareTo(a.voteAverage)); // 평점 높은 순
+    fav.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
 
-    // 2) 나머지(선호 장르 제외)도 평점 높은 순
     final Set<String> favIds = fav.map((m) => m.id).toSet();
     final rest = candidates.where((m) => !favIds.contains(m.id)).toList()
       ..sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
 
     final out = <Movie>[];
     out.addAll(fav.take(limit));
-    if (out.length < limit) {
-      out.addAll(rest.take(limit - out.length));
-    }
-
-    // (선택) 그래도 동일 평점이 많으면, 사용자가 별점 높게 준 장르를 살짝 우대하고 싶으면 여기서 추가 가중치도 가능
-    // 지금은 "선호장르 우선 + 평점"에 충실하게 유지.
-
+    if (out.length < limit) out.addAll(rest.take(limit - out.length));
     return out;
   }
 }
@@ -353,40 +343,47 @@ class _TasteTopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const double characterSize = 120;
+    const double gap = 5;
+    const double textShiftX = 18;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Image.asset(
           'assets/writing_character.png',
-          width: 88,
-          height: 88,
+          width: characterSize,
+          height: characterSize,
           fit: BoxFit.contain,
         ),
-        const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Text(
-              '영화 취향 분석',
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF7E74C9),
-                letterSpacing: 0.6,
+        const SizedBox(width: gap),
+        Transform.translate(
+          offset: const Offset(-textShiftX, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text(
+                '영화 취향 분석',
+                style: TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF7E74C9),
+                  letterSpacing: 0.6,
+                ),
               ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              '당신이 기록한 일기를 바탕으로 분석해드려요~',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF9A9A9A),
+              SizedBox(height: 4),
+              Text(
+                '당신이 기록한 일기를 바탕으로 분석해드려요~',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF9A9A9A),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
