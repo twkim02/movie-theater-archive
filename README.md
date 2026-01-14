@@ -1,5 +1,5 @@
 # 📚 무비어리 (Moviary)
-사진 넣기
+![image](https://github.com/user-attachments/assets/9aed7b7d-55b9-4469-bbf5-56d0319403ff)
 
 나만의 영화 다이어리 서비스
 
@@ -86,7 +86,7 @@ graph TD
 ## 우리 팀!!
 | 김예은 | 김태우 |
 | :---: | :---:   |
-| 사진 넣기 | 사진 넣기 |
+| <img width="2048" height="2731" alt="Image" src="https://github.com/user-attachments/assets/2f9e7ef2-0b8b-41a7-ae59-8805c96f630a" /> | <img width="2048" height="2048" alt="Image" src="https://github.com/user-attachments/assets/cc92cbf2-ef60-479f-9e7f-35e23a8ad346" /> |
 | [@YeaeunnKim](https://github.com/YeaeunnKim) | [@twkim02](https://github.com/twkim02) |
 | 고려대학교 통계학과 4학년 | 한양대학교 데이터사이언스전공 4학년 |
 
