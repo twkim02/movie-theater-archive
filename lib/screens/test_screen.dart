@@ -1662,6 +1662,54 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(height: 16),
 
+          // CSV 기반 isRecent 플래그 업데이트
+          Card(
+            color: Colors.teal.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '6️⃣ CSV 기반 isRecent 플래그 업데이트',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '롯데시네마 또는 메가박스 CSV 파일에 있는 영화만 isRecent=true로 설정하고,\n'
+                    '그렇지 않은 영화는 isRecent=false로 설정합니다.\n'
+                    'TMDb API로 가져온 영화 중 실제로 상영하지 않는 최신 영화를 필터링할 수 있습니다.',
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      _showLoading(context, 'CSV 기반 isRecent 플래그 업데이트 중...\n시간이 걸릴 수 있습니다.');
+                      try {
+                        final count = await MovieInitializationService.updateIsRecentBasedOnCsv();
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        await appState.refreshMovies(); // 영화 리스트 새로고침
+                        _showSuccess(context, 'CSV 기반 isRecent 플래그 업데이트 완료!\n$count개의 영화가 업데이트되었습니다.');
+                      } catch (e) {
+                        Navigator.of(context).pop(); // 로딩 닫기
+                        _showError(context, '오류: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.update),
+                    label: const Text('CSV 기반 isRecent 플래그 업데이트'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // DB 초기화 (모든 데이터 삭제)
           Card(
             color: Colors.red.shade50,

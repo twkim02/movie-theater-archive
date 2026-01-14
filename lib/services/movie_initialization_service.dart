@@ -39,6 +39,14 @@ class MovieInitializationService {
       final popularSaved = await _savePopularMovies(client);
       totalSaved += popularSaved;
 
+      // 4. CSV 파일을 기반으로 isRecent 플래그 보완
+      try {
+        await updateIsRecentBasedOnCsv();
+      } catch (e) {
+        debugPrint('⚠️ CSV 기반 isRecent 플래그 업데이트 실패 (초기화 중): $e');
+        // 실패해도 계속 진행
+      }
+
       return totalSaved;
     } catch (e) {
       throw Exception('영화 초기화 실패: $e');
@@ -347,6 +355,57 @@ class MovieInitializationService {
       return updatedCount;
     } catch (e) {
       throw Exception('러닝타임 업데이트 실패: $e');
+    }
+  }
+
+  /// CSV 파일을 기반으로 모든 영화의 isRecent 플래그를 업데이트합니다.
+  /// 
+  /// 롯데시네마 또는 메가박스 CSV에 있는 영화만 isRecent=true로 설정하고,
+  /// 그렇지 않은 영화는 isRecent=false로 설정합니다.
+  /// 
+  /// Returns 업데이트된 영화 개수 (isRecent 값이 변경된 영화)
+  static Future<int> updateIsRecentBasedOnCsv() async {
+    try {
+      // DB에서 모든 영화 가져오기
+      final allMovies = await MovieRepository.getAllMovies();
+      
+      if (allMovies.isEmpty) {
+        debugPrint('⚠️ DB에 영화가 없습니다.');
+        return 0;
+      }
+
+      debugPrint('📊 CSV 기반 isRecent 플래그 업데이트 시작 (전체 ${allMovies.length}개 영화)');
+      
+      int updatedCount = 0;
+      
+      // 각 영화에 대해 롯데시네마/메가박스에서 상영 중인지 확인
+      for (final movie in allMovies) {
+        try {
+          // 롯데시네마와 메가박스에서 상영 중인지 확인
+          final isPlayingInLotte = await LotteCinemaMovieChecker.isPlayingInLotteCinema(movie.title);
+          final isPlayingInMegabox = await MegaboxMovieChecker.isPlayingInMegabox(movie.title);
+          
+          // 둘 중 하나라도 상영 중이면 isRecent = true
+          final shouldBeRecent = isPlayingInLotte || isPlayingInMegabox;
+          
+          // 현재 값과 다르면 업데이트
+          if (movie.isRecent != shouldBeRecent) {
+            final updatedMovie = movie.copyWith(isRecent: shouldBeRecent);
+            await MovieRepository.updateMovie(updatedMovie);
+            updatedCount++;
+            
+            debugPrint('✅ isRecent 업데이트: "${movie.title}" → ${shouldBeRecent} (롯데: $isPlayingInLotte, 메가박스: $isPlayingInMegabox)');
+          }
+        } catch (e) {
+          debugPrint('⚠️ 영화 isRecent 업데이트 실패 (${movie.title}): $e');
+          // 계속 진행
+        }
+      }
+      
+      debugPrint('✅ CSV 기반 isRecent 플래그 업데이트 완료: $updatedCount개 영화 업데이트됨');
+      return updatedCount;
+    } catch (e) {
+      throw Exception('CSV 기반 isRecent 플래그 업데이트 실패: $e');
     }
   }
 }
