@@ -69,7 +69,11 @@ flutter:
     - assets/pinktape.png
     - assets/yellowtape.png
     - assets/purpletape.png
-    - assets/purpletapeshort.png    
+    - assets/purpletapeshort.png 
+    - assets/notebook_page.png   
+    - assets/bubble_long.png
+    - assets/happy_character.png
+    - assets/writing_character.png
     - env.json
 
   fonts:
