@@ -59,9 +59,7 @@ TMDb와 영화관 실시간 데이터를 결합하여 영화 탐색부터 관람
 
 | 탐색 및 영화 검색 | 관람 기록 작성 | 일기장 및 정렬 | 취향 분석 및 추천 |
 | :---: | :---: | :---: | :---: |
-| [빈 칸: 영상/이미지] | [빈 칸: 영상/이미지] | [빈 칸: 영상/이미지] | [빈 칸: 영상/이미지] |
-
-> *추가 시연 영상 혹은 GIF를 이곳에 배치해 주세요.*
+| <img width="720" height="1080" alt="Image" src="https://github.com/user-attachments/assets/6289bf18-b9f2-4506-8cc2-a40acfaafeae" /> | <img width="720" height="1080" alt="Image" src="https://github.com/user-attachments/assets/3bba25aa-c49e-41d6-9182-395bbc2339d7" /> | <img width="720" height="1080" alt="Image" src="https://github.com/user-attachments/assets/d38e2bda-21de-4d89-b64b-551c6e31f962" /> | <img width="720" height="1080" alt="Image" src="https://github.com/user-attachments/assets/ce600e7c-2799-42ef-bd59-7f7c5785d82d" /> |
 
 ---
 
