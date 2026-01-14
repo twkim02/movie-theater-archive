@@ -177,6 +177,13 @@ if (isPlayingInLotte || isPlayingInMegabox) {
 **테스트 포인트**: 
 - TMDb에서 상영 중이 아니지만 메가박스에서 상영 중인 영화가 `isRecent = true`로 설정되는지 확인
 - 롯데시네마와 메가박스 모두 확인하는지 확인
+- 둘 중 하나라도 상영 중이면 `isRecent = true`로 설정되는지 확인
+
+**완료 상태**: ✅ 완료
+- `MegaboxMovieChecker` 서비스 생성 완료
+- `MovieInitializationService` 수정 완료 (현재 상영 중인 영화 + 인기 영화 모두 처리)
+- 단위 테스트 작성 및 통과 (4개 테스트 모두 통과)
+- TestScreen에 테스트 섹션 추가 완료
 
 ---
 

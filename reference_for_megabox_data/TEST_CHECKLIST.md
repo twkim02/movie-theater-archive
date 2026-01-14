@@ -257,6 +257,103 @@ flutter test test/services/theater_schedule_service_test.dart
   - [x] dummy_theaters.dart 수정 및 통합
   - [x] TheaterCard 위젯 수정
   - [x] 단위 테스트 모두 통과 (16개)
+- [x] **4단계: TMDb 초기화 시 메가박스 상영 여부 확인 완료**
+  - [x] MegaboxMovieChecker 서비스 생성
+  - [x] MovieInitializationService 수정 (롯데시네마 + 메가박스)
+  - [x] 단위 테스트 모두 통과 (4개)
+  - [x] TestScreen에 테스트 섹션 추가
+
+---
+
+## ✅ 4단계: TMDb 초기화 시 메가박스 상영 여부 확인 테스트
+
+### 4.1. MegaboxMovieChecker 서비스 테스트
+
+**테스트 파일**: `test/services/megabox_movie_checker_test.dart`
+
+**실행 명령어**:
+```bash
+flutter test test/services/megabox_movie_checker_test.dart
+```
+
+**테스트 결과** (2026-01-14 기준):
+- ✅ **4개 테스트 모두 통과**
+- ✅ 메가박스에서 상영 중인 영화 확인 테스트 통과
+- ✅ 메가박스에서 상영하지 않는 영화 확인 테스트 통과
+- ✅ 다양한 영화 제목으로 테스트 통과
+- ✅ 에러 발생 시 false 반환 테스트 통과
+
+**주요 확인 사항**:
+- 메가박스 CSV에 있는 영화는 `true` 반환
+- 메가박스 CSV에 없는 영화는 `false` 반환
+- 에러 발생 시 조용히 `false` 반환 (크래시 없음)
+
+### 4.2. MovieInitializationService 통합 테스트
+
+**확인 항목**:
+- ✅ 현재 상영 중인 영화 (`_saveNowPlayingMovies`)에서 롯데시네마와 메가박스 모두 확인
+- ✅ 인기 영화 (`_savePopularMovies`)에서 롯데시네마와 메가박스 모두 확인
+- ✅ 둘 중 하나라도 상영 중이면 `isRecent = true` 설정
+- ✅ 에러 발생 시에도 계속 진행 (TMDb 기준으로 처리)
+
+**테스트 화면 확인 방법**:
+1. TestScreen → "메가박스" 탭
+2. "5. 메가박스 영화 확인 서비스 테스트 (4단계)" 섹션 확인
+3. 개별 확인:
+   - "메가박스 상영 여부 확인 (만약에 우리)" → "상영 중"
+   - "메가박스 상영 여부 확인 (프로젝트 Y)" → "상영 중"
+   - "메가박스 상영 여부 확인 (존재하지 않는 영화)" → "상영 안 함"
+4. 통합 확인:
+   - "롯데시네마 상영 여부" 확인
+   - "메가박스 상영 여부" 확인
+   - "통합 확인 (둘 중 하나라도 상영 중)" → 둘 중 하나라도 true이면 "상영 중 (isRecent = true)"
+
+**실제 동작 시나리오**:
+1. TMDb API에서 영화 정보 가져오기
+2. 각 영화에 대해:
+   - 롯데시네마 CSV 확인 (`LotteCinemaMovieChecker.isPlayingInLotteCinema()`)
+   - 메가박스 CSV 확인 (`MegaboxMovieChecker.isPlayingInMegabox()`)
+   - 둘 중 하나라도 `true`이면 `isRecent = true` 설정
+3. DB에 저장
+
+**로직 예시**:
+```dart
+final isPlayingInLotte = await LotteCinemaMovieChecker.isPlayingInLotteCinema(movieTitle);
+final isPlayingInMegabox = await MegaboxMovieChecker.isPlayingInMegabox(movieTitle);
+if (isPlayingInLotte || isPlayingInMegabox) {
+  isRecent = true;
+}
+```
+
+### 4.3. 통합 테스트 실행 결과
+
+**테스트 파일**: `test/services/movie_initialization_service_integration_test.dart`
+
+**실행 명령어**:
+```bash
+flutter test test/services/movie_initialization_service_integration_test.dart
+```
+
+**테스트 결과** (2026-01-14 기준):
+- ✅ **6개 테스트 모두 통과**
+- ✅ 롯데시네마와 메가박스 모두 확인하는지 테스트 통과
+- ✅ 롯데시네마에서만 상영 중인 경우 테스트 통과
+- ✅ 메가박스에서만 상영 중인 경우 테스트 통과
+- ✅ 둘 다 상영 중인 경우 테스트 통과
+- ✅ 둘 다 상영하지 않는 경우 테스트 통과
+- ✅ 에러 발생 시에도 계속 진행하는지 확인 테스트 통과
+
+**주요 확인 사항**:
+- **롯데시네마에서만 상영 중**: `isRecent = true` 설정 ✅
+- **메가박스에서만 상영 중**: `isRecent = true` 설정 ✅
+- **둘 다 상영 중**: `isRecent = true` 설정 ✅
+- **둘 다 상영하지 않음**: `isRecent = false` 유지 ✅
+- **에러 발생 시**: 조용히 `false` 반환, 크래시 없음 ✅
+
+**전체 테스트 요약**:
+- `megabox_movie_checker_test.dart`: 4개 테스트 통과
+- `movie_initialization_service_integration_test.dart`: 6개 테스트 통과
+- **총 10개 테스트 모두 통과** ✅
 
 ---
 

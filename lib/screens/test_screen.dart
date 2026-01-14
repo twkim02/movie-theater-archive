@@ -20,6 +20,7 @@ import '../services/lottecinema_movie_checker.dart';
 import '../widgets/theater_card.dart';
 import '../api/megabox_client.dart';
 import '../models/megabox_data.dart';
+import '../services/megabox_movie_checker.dart';
 
 /// 개발/테스트용 화면
 /// 작성한 코드가 제대로 작동하는지 시각적으로 확인할 수 있습니다.
@@ -2825,6 +2826,116 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           
           const SizedBox(height: 16),
           
+          // 메가박스 영화 확인 서비스 테스트 (4단계)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '5. 메가박스 영화 확인 서비스 테스트 (4단계)',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<bool>(
+                    future: MegaboxMovieChecker.isPlayingInMegabox('만약에 우리'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      final isPlaying = snapshot.data ?? false;
+                      return _buildTestResultItem(
+                        '메가박스 상영 여부 확인 (만약에 우리)',
+                        isPlaying,
+                        isPlaying ? '상영 중' : '상영 안 함',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<bool>(
+                    future: MegaboxMovieChecker.isPlayingInMegabox('프로젝트 Y'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final isPlaying = snapshot.data ?? false;
+                      return _buildTestResultItem(
+                        '메가박스 상영 여부 확인 (프로젝트 Y)',
+                        isPlaying,
+                        isPlaying ? '상영 중' : '상영 안 함',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<bool>(
+                    future: MegaboxMovieChecker.isPlayingInMegabox('존재하지 않는 영화 12345'),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      final isPlaying = snapshot.data ?? false;
+                      return _buildTestResultItem(
+                        '메가박스 상영 여부 확인 (존재하지 않는 영화)',
+                        !isPlaying,
+                        !isPlaying ? '정상 (상영 안 함)' : '오류 (상영 중으로 표시됨)',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '롯데시네마 + 메가박스 통합 확인',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<Map<String, bool>>(
+                    future: () async {
+                      final isLotte = await LotteCinemaMovieChecker.isPlayingInLotteCinema('만약에 우리');
+                      final isMegabox = await MegaboxMovieChecker.isPlayingInMegabox('만약에 우리');
+                      return {
+                        'lotte': isLotte,
+                        'megabox': isMegabox,
+                      };
+                    }(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      final data = snapshot.data ?? {};
+                      final isLotte = data['lotte'] ?? false;
+                      final isMegabox = data['megabox'] ?? false;
+                      final isPlaying = isLotte || isMegabox;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTestResultItem(
+                            '롯데시네마 상영 여부',
+                            true,
+                            isLotte ? '상영 중' : '상영 안 함',
+                          ),
+                          const SizedBox(height: 8),
+                          _buildTestResultItem(
+                            '메가박스 상영 여부',
+                            true,
+                            isMegabox ? '상영 중' : '상영 안 함',
+                          ),
+                          const SizedBox(height: 8),
+                          _buildTestResultItem(
+                            '통합 확인 (둘 중 하나라도 상영 중)',
+                            isPlaying,
+                            isPlaying ? '상영 중 (isRecent = true)' : '상영 안 함 (isRecent = false)',
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
           // 추가 테스트: 다양한 케이스
           Card(
             child: Padding(
@@ -2833,7 +2944,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '5. 추가 테스트 케이스',
+                    '6. 추가 테스트 케이스',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
