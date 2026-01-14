@@ -55,23 +55,13 @@ TMDb와 영화관 실시간 데이터를 결합하여 영화 탐색부터 관람
 
 ---
 
-## 3. 시연 영상
+## 3. 스크린샷
 
 | 탐색 및 영화 검색 | 관람 기록 작성 | 일기장 및 정렬 | 취향 분석 및 추천 |
 | :---: | :---: | :---: | :---: |
 | <img width="720" height="1080" alt="Image" src="https://github.com/user-attachments/assets/6289bf18-b9f2-4506-8cc2-a40acfaafeae" /> | <img width="720" height="1080" alt="Image" src="https://github.com/user-attachments/assets/3bba25aa-c49e-41d6-9182-395bbc2339d7" /> | <img width="720" height="1080" alt="Image" src="https://github.com/user-attachments/assets/d38e2bda-21de-4d89-b64b-551c6e31f962" /> | <img width="720" height="1080" alt="Image" src="https://github.com/user-attachments/assets/ce600e7c-2799-42ef-bd59-7f7c5785d82d" /> |
 
----
-
-## 4. How to Install
-
-아래 링크를 통해 최신 버전의 무비어리 설치 파일(APK)을 다운로드할 수 있습니다.
-
-[📲 Moviary APK 다운로드 (Link 준비 중)]
-
----
-
-## 5. 아키텍처 및 데이터 흐름
+## 4. 아키텍처 및 데이터 흐름
 
 ```mermaid
 graph TD
