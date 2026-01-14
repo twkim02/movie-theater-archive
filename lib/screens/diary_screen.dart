@@ -367,8 +367,16 @@ class _DiaryScreenState extends State<DiaryScreen> {
                               child: Padding(
                                 padding: EdgeInsets.only(top: 18),
                                 child: _SortDropdown(
-                                  label: "최신 관람순",
-                                  onSelected: null,
+                                  label: _sortLabel(),
+                                  onSelected: (value) {
+                                    if (value == 'range') {
+                                      _openRangeInputDialog();
+                                    } else if (value is RecordSort) {
+                                      setState(() {
+                                        _sort = value;
+                                      });
+                                    }
+                                  },
                                 ),
                               ),
                             ),
