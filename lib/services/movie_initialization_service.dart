@@ -47,6 +47,17 @@ class MovieInitializationService {
         // 실패해도 계속 진행
       }
 
+      // 5. 유효하지 않은 제목을 가진 영화 제거
+      try {
+        final removedCount = await removeInvalidTitleMovies();
+        if (removedCount > 0) {
+          debugPrint('✅ 초기화 완료 후 유효하지 않은 제목의 영화 $removedCount개 제거됨');
+        }
+      } catch (e) {
+        debugPrint('⚠️ 유효하지 않은 제목의 영화 제거 실패 (초기화 중): $e');
+        // 실패해도 계속 진행
+      }
+
       return totalSaved;
     } catch (e) {
       throw Exception('영화 초기화 실패: $e');
@@ -138,12 +149,20 @@ class MovieInitializationService {
       // DB에 없는 영화만 필터링
       final newMovies = await MovieRepository.filterNewMovies(moviesWithDetails);
 
-      // DB에 저장
-      if (newMovies.isNotEmpty) {
-        await MovieRepository.addMovies(newMovies);
+      // 유효한 제목을 가진 영화만 필터링
+      final validMovies = filterValidTitles(newMovies);
+      
+      if (validMovies.length < newMovies.length) {
+        final skippedCount = newMovies.length - validMovies.length;
+        debugPrint('⚠️ 유효하지 않은 제목의 영화 $skippedCount개를 스킵했습니다.');
       }
 
-      return newMovies.length;
+      // DB에 저장
+      if (validMovies.isNotEmpty) {
+        await MovieRepository.addMovies(validMovies);
+      }
+
+      return validMovies.length;
     } catch (e) {
       throw Exception('현재 상영 중인 영화 저장 실패: $e');
     }
@@ -243,10 +262,18 @@ class MovieInitializationService {
         // DB에 없는 영화만 필터링
         final newMovies = await MovieRepository.filterNewMovies(moviesWithDetails);
 
+        // 유효한 제목을 가진 영화만 필터링
+        final validMovies = filterValidTitles(newMovies);
+        
+        if (validMovies.length < newMovies.length) {
+          final skippedCount = newMovies.length - validMovies.length;
+          debugPrint('⚠️ 유효하지 않은 제목의 영화 $skippedCount개를 스킵했습니다. (인기 영화, 페이지 $page)');
+        }
+
         // DB에 저장
-        if (newMovies.isNotEmpty) {
-          await MovieRepository.addMovies(newMovies);
-          totalSaved += newMovies.length;
+        if (validMovies.isNotEmpty) {
+          await MovieRepository.addMovies(validMovies);
+          totalSaved += validMovies.length;
         }
 
         // 마지막 페이지에 도달했으면 중단
@@ -407,5 +434,114 @@ class MovieInitializationService {
     } catch (e) {
       throw Exception('CSV 기반 isRecent 플래그 업데이트 실패: $e');
     }
+  }
+
+  /// 영화 제목이 유효한 문자로만 구성되어 있는지 확인합니다.
+  /// 
+  /// 한글, 알파벳(a-z, A-Z), 아스키 코드 내의 특수문자(32-126)만 허용합니다.
+  /// 숫자(0-9)도 허용합니다.
+  /// 
+  /// [title] 검증할 영화 제목
+  /// Returns 유효한 문자만 포함되어 있으면 true
+  static bool isValidTitle(String title) {
+    if (title.trim().isEmpty) {
+      return false;
+    }
+
+    // 각 문자가 허용된 문자 범위에 있는지 확인
+    for (int i = 0; i < title.length; i++) {
+      final char = title.codeUnitAt(i);
+      
+      // 한글 (완성형 한글: U+AC00 ~ U+D7A3)
+      if (char >= 0xAC00 && char <= 0xD7A3) {
+        continue;
+      }
+      
+      // 알파벳 (a-z, A-Z)
+      if ((char >= 0x41 && char <= 0x5A) || // A-Z
+          (char >= 0x61 && char <= 0x7A)) { // a-z
+        continue;
+      }
+      
+      // 숫자 (0-9)
+      if (char >= 0x30 && char <= 0x39) {
+        continue;
+      }
+      
+      // 아스키 특수문자 및 공백 (32-126 범위, 숫자와 알파벳 제외)
+      // 32(공백), 33-47(!~/,), 58-64(:~@), 91-96([~`), 123-126({~})
+      if ((char >= 0x20 && char <= 0x7E)) {
+        // 숫자와 알파벳은 이미 위에서 처리했으므로 여기서는 제외
+        if (char < 0x30 || (char > 0x39 && char < 0x41) || 
+            (char > 0x5A && char < 0x61) || char > 0x7A) {
+          continue;
+        }
+      }
+      
+      // 허용되지 않은 문자 발견
+      return false;
+    }
+    
+    return true;
+  }
+
+  /// 영화 제목에 유효하지 않은 문자가 포함된 영화를 DB에서 제거합니다.
+  /// 
+  /// 한글, 알파벳, 숫자, 아스키 특수문자만 허용하며, 그 외의 문자가 포함된 영화는 삭제합니다.
+  /// 
+  /// Returns 삭제된 영화 개수
+  static Future<int> removeInvalidTitleMovies() async {
+    try {
+      // DB에서 모든 영화 가져오기
+      final allMovies = await MovieRepository.getAllMovies();
+      
+      if (allMovies.isEmpty) {
+        debugPrint('⚠️ DB에 영화가 없습니다.');
+        return 0;
+      }
+
+      debugPrint('📊 유효하지 않은 제목의 영화 제거 시작 (전체 ${allMovies.length}개 영화)');
+      
+      int removedCount = 0;
+      final List<String> removedTitles = [];
+      
+      // 각 영화의 제목 검증
+      for (final movie in allMovies) {
+        if (!isValidTitle(movie.title)) {
+          try {
+            await MovieRepository.deleteMovie(movie.id);
+            removedCount++;
+            removedTitles.add(movie.title);
+            debugPrint('❌ 영화 제거: "${movie.title}" (ID: ${movie.id})');
+          } catch (e) {
+            debugPrint('⚠️ 영화 삭제 실패 (${movie.title}): $e');
+            // 계속 진행
+          }
+        }
+      }
+      
+      if (removedTitles.isNotEmpty) {
+        debugPrint('✅ 제거된 영화 목록 (처음 10개):');
+        for (int i = 0; i < removedTitles.length && i < 10; i++) {
+          debugPrint('  - ${removedTitles[i]}');
+        }
+        if (removedTitles.length > 10) {
+          debugPrint('  ... 외 ${removedTitles.length - 10}개');
+        }
+      }
+      
+      debugPrint('✅ 유효하지 않은 제목의 영화 제거 완료: $removedCount개 영화 제거됨');
+      return removedCount;
+    } catch (e) {
+      throw Exception('유효하지 않은 제목의 영화 제거 실패: $e');
+    }
+  }
+
+  /// 영화 목록에서 유효하지 않은 제목을 가진 영화를 필터링합니다.
+  /// 
+  /// [movies] 필터링할 영화 목록
+  /// Returns 유효한 제목을 가진 영화 목록
+  static List<Movie> filterValidTitles(List<Movie> movies) {
+    return movies.where((movie) => isValidTitle(movie.title)).toList();
   }
 }

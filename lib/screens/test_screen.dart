@@ -188,7 +188,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                   Text('장르: ${firstMovie.genres.join(", ")}'),
                   Text('개봉일: ${firstMovie.releaseDate}'),
                   Text('러닝타임: ${firstMovie.runtime}분'),
-                  Text('평점: ${firstMovie.voteAverage}'),
+                  Text('평점: ${firstMovie.displayVoteAverage} (DB: ${firstMovie.voteAverage})'),
                   Text('최신작 여부: ${firstMovie.isRecent ? "예" : "아니오"}'),
                   const SizedBox(height: 12),
                   Wrap(
@@ -1701,6 +1701,77 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                     label: const Text('CSV 기반 isRecent 플래그 업데이트'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 유효하지 않은 제목의 영화 제거
+          Card(
+            color: Colors.orange.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '7️⃣ 유효하지 않은 제목의 영화 제거',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '영화 제목에 한글, 알파벳, 숫자, 아스키 특수문자만 허용하며,\n'
+                    '그 외의 문자가 포함된 영화를 DB에서 제거합니다.\n'
+                    '예: 일본어, 중국어, 이모지 등이 포함된 영화가 제거됩니다.',
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('유효하지 않은 제목의 영화 제거'),
+                          content: const Text(
+                            '영화 제목에 한글, 알파벳, 숫자, 아스키 특수문자 외의 문자가 포함된 영화를 제거합니다.\n\n'
+                            '이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('취소'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text('제거', style: TextStyle(color: Colors.orange)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmed == true) {
+                        _showLoading(context, '유효하지 않은 제목의 영화 제거 중...');
+                        try {
+                          final count = await MovieInitializationService.removeInvalidTitleMovies();
+                          Navigator.of(context).pop(); // 로딩 닫기
+                          await appState.refreshMovies(); // 영화 리스트 새로고침
+                          _showSuccess(context, '유효하지 않은 제목의 영화 제거 완료!\n$count개의 영화가 제거되었습니다.');
+                        } catch (e) {
+                          Navigator.of(context).pop(); // 로딩 닫기
+                          _showError(context, '오류: $e');
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.cleaning_services),
+                    label: const Text('유효하지 않은 제목의 영화 제거'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
                       foregroundColor: Colors.white,
                     ),
                   ),
