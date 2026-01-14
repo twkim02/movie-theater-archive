@@ -81,15 +81,7 @@ graph TD
     Provider --> Repo[Repositories]
     Repo --> DB[(SQLite / Hive)]
     Repo --> API[External APIs - TMDb, Kakao, Cinema]
-
-## 프로젝트 설명
-프로젝트 설명 (한 줄 소개, 슬로건, 사용된 기술, 페이지별 기능 등 자율적으로 작성)
-
-## 시연 영상
-움짤 4개 이상 혹은 20초 이상의 동영상(사진 4장 이상도 가능)
-
-## How to Install
-(APK 파일 링크)
+```
 
 ## 우리 팀!!
 | 김예은 | 김태우 |
