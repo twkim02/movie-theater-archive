@@ -132,13 +132,13 @@ class TheaterCard extends StatelessWidget {
 
                 const SizedBox(width: 10),
 
-                // 2) 예매/시간표
+                // 2) 예매하기
                 ElevatedButton.icon(
                   onPressed: () {
                     _openExternal(context, t.bookingUrl);
                   },
                   icon: const Icon(Icons.confirmation_number, size: 18),
-                  label: const Text('예매/시간표'),
+                  label: const Text('예매하기'),
                 ),
               ],
             ),

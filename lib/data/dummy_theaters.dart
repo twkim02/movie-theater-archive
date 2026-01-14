@@ -3,6 +3,7 @@ import '../models/theater.dart';
 import '../api/kakao_local_client.dart';
 import '../utils/env_loader.dart';
 import '../services/theater_schedule_service.dart';
+import '../utils/csv_parser.dart';
 
 
 double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
@@ -19,11 +20,53 @@ double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
 
 
 
-String _dateYmd(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
 String _naverSearchUrl(String q) =>
-    'https://search.naver.com/search.naver?query=${Uri.encodeComponent(q)}';
+    'https://m.search.naver.com/search.naver?query=${Uri.encodeComponent(q)}';
+
+/// 영화관별 예매 URL을 생성합니다.
+/// 
+/// [theaterName] 영화관 이름
+/// 
+/// Returns 영화관 종류에 따른 예매 URL:
+/// - 메가박스: https://www.megabox.co.kr/theater?brchNo={brchNo}
+/// - 롯데시네마: https://www.lottecinema.co.kr/NLCHS/Cinema/Detail?divisionCode={divisionCode}&detailDivisionCode={detailDivisionCode}&cinemaID={cinemaID}
+/// - CGV: https://cgv.co.kr/
+/// - 기타: 네이버 검색 URL
+Future<String> _buildBookingUrl(String theaterName) async {
+  final normalized = theaterName.toLowerCase();
+  
+  // 메가박스 영화관
+  if (normalized.contains('메가박스') || normalized.contains('메가')) {
+    try {
+      final theater = await CsvParser.findMegaboxTheaterByName(theaterName);
+      if (theater != null) {
+        return 'https://www.megabox.co.kr/theater?brchNo=${theater.brchNo}';
+      }
+    } catch (e) {
+      // CSV 조회 실패 시 네이버 검색으로 fallback
+    }
+  }
+  
+  // 롯데시네마 영화관
+  if (normalized.contains('롯데시네마') || normalized.contains('롯데')) {
+    try {
+      final theater = await CsvParser.findTheaterByName(theaterName);
+      if (theater != null) {
+        return 'https://www.lottecinema.co.kr/NLCHS/Cinema/Detail?divisionCode=${theater.divisionCode}&detailDivisionCode=${theater.detailDivisionCode}&cinemaID=${theater.cinemaID}';
+      }
+    } catch (e) {
+      // CSV 조회 실패 시 네이버 검색으로 fallback
+    }
+  }
+  
+  // CGV 영화관
+  if (normalized.contains('cgv')) {
+    return 'https://cgv.co.kr/';
+  }
+  
+  // 기타 영화관: 네이버 검색
+  return _naverSearchUrl(theaterName);
+}
 
 /// ✅ 실제: 카카오 로컬 API로 주변 영화관 가져오기
 Future<List<Theater>> fetchNearbyTheatersReal({
@@ -75,9 +118,6 @@ Future<List<Theater>> fetchNearbyTheatersReal({
         ? distKmFromApi
         : _haversineKm(lat, lng, y, x); // ✅ 0이면 직접 계산
 
-    // 예매/시간표는 네이버 검색으로 안전하게 연결
-    final bookingQuery = '$name $movieTitle 상영시간표 ${_dateYmd(date)}';
-
     // 롯데시네마 또는 메가박스 영화관인 경우 실제 상영 시간표 가져오기
     List<Showtime> showtimes = [];
     if (name.contains('롯데시네마') || name.contains('롯데') ||
@@ -96,6 +136,9 @@ Future<List<Theater>> fetchNearbyTheatersReal({
       }
     }
 
+    // 영화관별 예매 URL 생성
+    final bookingUrl = await _buildBookingUrl(name);
+
     return Theater(
       id: id,
       name: name,
@@ -104,7 +147,7 @@ Future<List<Theater>> fetchNearbyTheatersReal({
       lng: x,
       distanceKm: distKm,
       showtimes: showtimes, // ✅ 롯데시네마면 실제 시간표, 아니면 빈 리스트
-      bookingUrl: _naverSearchUrl(bookingQuery),
+      bookingUrl: bookingUrl,
     );
   }));
 
@@ -137,7 +180,7 @@ Future<List<Theater>> fetchNearbyTheatersDummy({
         Showtime(start: '18:40', end: '20:44', screen: '3관'),
         Showtime(start: '19:50', end: '21:54', screen: '5관'),
       ],
-      bookingUrl: _naverSearchUrl('메가박스 $movieTitle 상영시간표 ${_dateYmd(date)}'),
+      bookingUrl: await _buildBookingUrl('메가박스 (더미)'),
     ),
     Theater(
       id: 'dummy_cgv',
@@ -147,7 +190,7 @@ Future<List<Theater>> fetchNearbyTheatersDummy({
       lng: lng - 0.006,
       distanceKm: dist(),
       showtimes: const [],
-      bookingUrl: _naverSearchUrl('CGV $movieTitle 상영시간표 ${_dateYmd(date)}'),
+      bookingUrl: await _buildBookingUrl('CGV (더미)'),
     ),
     Theater(
       id: 'dummy_lotte',
@@ -157,7 +200,7 @@ Future<List<Theater>> fetchNearbyTheatersDummy({
       lng: lng + 0.004,
       distanceKm: dist(),
       showtimes: const [],
-      bookingUrl: _naverSearchUrl('롯데시네마 $movieTitle 상영시간표 ${_dateYmd(date)}'),
+      bookingUrl: await _buildBookingUrl('롯데시네마 (더미)'),
     ),
   ]..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
 }

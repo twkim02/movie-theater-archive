@@ -89,23 +89,50 @@ class CsvParser {
   static Future<LotteCinemaTheater?> findTheaterByName(String theaterName) async {
     final theaters = await getTheaters();
     
-    // 정확한 매칭 우선
+    // "롯데시네마" 또는 "롯데" 접두사 제거 (CSV에는 영화관 이름만 저장되어 있음)
+    final normalizedName = theaterName
+        .replaceAll('롯데시네마', '')
+        .replaceAll('롯데', '')
+        .trim();
+    
+    // 1. 정확한 매칭 우선 (원본 이름)
     for (final theater in theaters) {
       if (theater.element == theaterName) {
         return theater;
       }
     }
     
-    // 부분 매칭 (영화관 이름에 포함되어 있는지)
-    final normalizedName = theaterName.replaceAll('롯데시네마', '').trim();
+    // 2. 정확한 매칭 (접두사 제거 후)
     for (final theater in theaters) {
-      if (theater.element.contains(normalizedName) || 
-          normalizedName.contains(theater.element)) {
+      if (theater.element == normalizedName) {
         return theater;
       }
     }
     
-    return null;
+    // 3. 부분 매칭 (가장 긴 매칭을 우선 선택)
+    LotteCinemaTheater? bestMatch;
+    int bestMatchLength = 0;
+    
+    for (final theater in theaters) {
+      // CSV 영화관 이름이 검색어에 포함되어 있는지
+      if (normalizedName.contains(theater.element)) {
+        // 더 긴 매칭을 우선 선택
+        if (theater.element.length > bestMatchLength) {
+          bestMatch = theater;
+          bestMatchLength = theater.element.length;
+        }
+      }
+      // 검색어가 CSV 영화관 이름에 포함되어 있는지
+      else if (theater.element.contains(normalizedName)) {
+        // 더 긴 매칭을 우선 선택
+        if (normalizedName.length > bestMatchLength) {
+          bestMatch = theater;
+          bestMatchLength = normalizedName.length;
+        }
+      }
+    }
+    
+    return bestMatch;
   }
 
   /// 영화명으로 영화 정보를 찾습니다.
@@ -180,23 +207,50 @@ class CsvParser {
   static Future<MegaboxTheater?> findMegaboxTheaterByName(String theaterName) async {
     final theaters = await getMegaboxTheaters();
     
-    // 정확한 매칭 우선
+    // "메가박스" 접두사 제거 (CSV에는 영화관 이름만 저장되어 있음)
+    final normalizedName = theaterName
+        .replaceAll('메가박스', '')
+        .replaceAll('메가', '')
+        .trim();
+    
+    // 1. 정확한 매칭 우선 (원본 이름)
     for (final theater in theaters) {
       if (theater.brchNm == theaterName) {
         return theater;
       }
     }
     
-    // 부분 매칭 (영화관 이름에 포함되어 있는지)
-    final normalizedName = theaterName.replaceAll('메가박스', '').trim();
+    // 2. 정확한 매칭 (접두사 제거 후)
     for (final theater in theaters) {
-      if (theater.brchNm.contains(normalizedName) || 
-          normalizedName.contains(theater.brchNm)) {
+      if (theater.brchNm == normalizedName) {
         return theater;
       }
     }
     
-    return null;
+    // 3. 부분 매칭 (가장 긴 매칭을 우선 선택)
+    MegaboxTheater? bestMatch;
+    int bestMatchLength = 0;
+    
+    for (final theater in theaters) {
+      // CSV 영화관 이름이 검색어에 포함되어 있는지
+      if (normalizedName.contains(theater.brchNm)) {
+        // 더 긴 매칭을 우선 선택
+        if (theater.brchNm.length > bestMatchLength) {
+          bestMatch = theater;
+          bestMatchLength = theater.brchNm.length;
+        }
+      }
+      // 검색어가 CSV 영화관 이름에 포함되어 있는지
+      else if (theater.brchNm.contains(normalizedName)) {
+        // 더 긴 매칭을 우선 선택
+        if (normalizedName.length > bestMatchLength) {
+          bestMatch = theater;
+          bestMatchLength = normalizedName.length;
+        }
+      }
+    }
+    
+    return bestMatch;
   }
 
   /// 메가박스 영화명으로 영화 정보를 찾습니다.

@@ -784,7 +784,7 @@ class _RecommendCard extends StatelessWidget {
                     const Icon(Icons.star, size: 14, color: Color(0xFFFFC107)),
                     const SizedBox(width: 2),
                     Text(
-                      movie.voteAverage.toStringAsFixed(1),
+                      movie.displayVoteAverage.toStringAsFixed(1),
                       style: TextStyle(
                         fontSize: 12.0,
                         fontWeight: FontWeight.w900,

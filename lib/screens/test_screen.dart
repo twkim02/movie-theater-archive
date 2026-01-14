@@ -635,7 +635,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 Text('찜한 날짜: ${_formatDate(item.savedAt)}'),
-                                Text('평점: ${item.movie.voteAverage}점'),
+                                Text('평점: ${item.movie.displayVoteAverage}점'),
                               ],
                             ),
                           ),
@@ -1244,7 +1244,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                         style: const TextStyle(fontSize: 14),
                       ),
                       subtitle: Text(
-                        '${movie.genres.join(", ")}\n평점: ${movie.voteAverage} | ${movie.releaseDate}',
+                        '${movie.genres.join(", ")}\n평점: ${movie.displayVoteAverage} | ${movie.releaseDate}',
                         style: const TextStyle(fontSize: 11),
                       ),
                     );
@@ -1812,7 +1812,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
               final item = sorted[index];
               return ListTile(
                 title: Text(item.movie.title),
-                subtitle: Text('${_formatDate(item.savedAt)} | 평점: ${item.movie.voteAverage}점'),
+                subtitle: Text('${_formatDate(item.savedAt)} | 평점: ${item.movie.displayVoteAverage}점'),
                 dense: true,
               );
             },

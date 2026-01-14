@@ -682,7 +682,7 @@ class MovieCard extends StatelessWidget {
                       const Icon(Icons.star, size: 16, color: Color(0xFFFFC107)),
                       const SizedBox(width: 4),
                       Text(
-                        '사람들 평점 ${movie.voteAverage.toStringAsFixed(1)}',
+                        '사람들 평점 ${movie.displayVoteAverage.toStringAsFixed(1)}',
                         style: TextStyle(
                           fontSize: 12.5,
                           color: textSecondary,

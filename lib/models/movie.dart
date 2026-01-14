@@ -8,6 +8,14 @@ class Movie {
   final double voteAverage;
   final bool isRecent;
 
+  /// 화면에 표시할 평점을 반환합니다.
+  /// 
+  /// DB에 저장된 평점이 0.0인 경우 (신규 영화) 3.0을 반환합니다.
+  /// 그 외의 경우에는 DB에 저장된 값을 그대로 반환합니다.
+  double get displayVoteAverage {
+    return voteAverage == 0.0 ? 3.0 : voteAverage;
+  }
+
   Movie({
     required this.id,
     required this.title,

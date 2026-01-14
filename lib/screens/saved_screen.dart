@@ -164,7 +164,7 @@ class _SavedGridCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _StarsDisplay(value: movie.voteAverage),
+                  _StarsDisplay(value: movie.displayVoteAverage),
                   const SizedBox(height: 4),
                   Text(
                     movie.title,
