@@ -19,7 +19,7 @@ class TasteScreen extends StatefulWidget {
 }
 
 class _TasteScreenState extends State<TasteScreen> {
-  _RangeMode _range = _RangeMode.all; // (현재 화면에 range 토글은 안 쓰지만, 향후 확장용)
+  _RangeMode _range = _RangeMode.all;
   _TrendMode _trend = _TrendMode.yearly;
 
   DateTime _rangeFrom(DateTime now) {
@@ -36,264 +36,262 @@ class _TasteScreenState extends State<TasteScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: const Text('무비어리', style: TextStyle(fontWeight: FontWeight.w800)),
-      ),
-      body: Consumer<AppState>(
-        builder: (context, appState, _) {
-          final records = appState.records;
-          final now = DateTime.now();
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/bg_paper.png',
+              fit: BoxFit.cover,
+            ),
+          ),
 
-          // ✅ 전체 기반 (상단 통계/추이/추천은 전체 기록 기준)
-          final allRecords = records;
+          SafeArea(
+            child: Consumer<AppState>(
+              builder: (context, appState, _) {
+                final records = appState.records;
+                final now = DateTime.now();
 
-          // (확장용) range 적용 데이터
-          final from = _rangeFrom(now);
-          final _ = records.where((r) => !r.watchDate.isBefore(from)).toList();
+                // ✅ 전체 기반 (상단 통계/추이/추천은 전체 기록 기준)
+                final allRecords = records;
 
-          final totalCount = allRecords.length;
-          final avgRating = totalCount == 0
-              ? 0.0
-              : allRecords.map((r) => r.rating).reduce((a, b) => a + b) / totalCount;
+                final totalCount = allRecords.length;
+                final avgRating = totalCount == 0
+                    ? 0.0
+                    : allRecords.map((r) => r.rating).reduce((a, b) => a + b) / totalCount;
 
-          // ✅ 선호 장르(모든 장르 반영)
-          final Map<String, int> genreCount = {};
-          final Map<String, double> genreSum = {};
-          final Map<String, int> genreN = {};
+                // ✅ 선호 장르(대표 장르 1개)
+                final Map<String, int> genreCount = {};
+                final Map<String, double> genreSum = {};
+                final Map<String, int> genreN = {};
 
-          void addGenreStat(String g, double rating) {
-            final key = g.isEmpty ? '기타' : g;
-            genreCount[key] = (genreCount[key] ?? 0) + 1;
-            genreSum[key] = (genreSum[key] ?? 0) + rating;
-            genreN[key] = (genreN[key] ?? 0) + 1;
-          }
+                void addGenreStat(String g, double rating) {
+                  final key = g.isEmpty ? '기타' : g;
+                  genreCount[key] = (genreCount[key] ?? 0) + 1;
+                  genreSum[key] = (genreSum[key] ?? 0) + rating;
+                  genreN[key] = (genreN[key] ?? 0) + 1;
+                }
 
-          for (final r in allRecords) {
-            final gs = r.movie.genres;
-            final primaryGenre = gs.isEmpty ? '기타' : gs.first;
-            addGenreStat(primaryGenre, r.rating);
-          }
+                for (final r in allRecords) {
+                  final gs = r.movie.genres;
+                  final primaryGenre = gs.isEmpty ? '기타' : gs.first;
+                  addGenreStat(primaryGenre, r.rating);
+                }
 
-          String favoriteGenre = '—';
-          if (genreCount.isNotEmpty) {
-            final entries = genreCount.entries.toList()
-              ..sort((a, b) {
-                final byCount = b.value.compareTo(a.value);
-                if (byCount != 0) return byCount;
-                final ar = (genreSum[a.key]! / genreN[a.key]!);
-                final br = (genreSum[b.key]! / genreN[b.key]!);
-                return br.compareTo(ar);
-              });
-            favoriteGenre = entries.first.key;
-          }
+                String favoriteGenre = '—';
+                if (genreCount.isNotEmpty) {
+                  final entries = genreCount.entries.toList()
+                    ..sort((a, b) {
+                      final byCount = b.value.compareTo(a.value);
+                      if (byCount != 0) return byCount;
+                      final ar = (genreSum[a.key]! / genreN[a.key]!);
+                      final br = (genreSum[b.key]! / genreN[b.key]!);
+                      return br.compareTo(ar);
+                    });
+                  favoriteGenre = entries.first.key;
+                }
 
+                // ✅ 장르 분포 도넛: range 적용 + 대표장르 1개만 카운트
+                final fromForPie = _rangeFrom(now);
+                final rangeRecords = records.where((r) => !r.watchDate.isBefore(fromForPie)).toList();
 
-        // ✅ (원그래프) 장르 분포 도넛: range 적용(전체/1년/3년) + 대표장르 1개만 반영
-          final fromForPie = _rangeFrom(now);
-          final rangeRecords = records.where((r) => !r.watchDate.isBefore(fromForPie)).toList();
+                final Map<String, int> rangeGenreCount = {};
+                void addRangeGenre(String g) {
+                  final key = g.isEmpty ? '기타' : g;
+                  rangeGenreCount[key] = (rangeGenreCount[key] ?? 0) + 1;
+                }
 
-          final Map<String, int> rangeGenreCount = {};
+                for (final r in rangeRecords) {
+                  final gs = r.movie.genres;
+                  final primaryGenre = gs.isEmpty ? '기타' : gs.first;
+                  addRangeGenre(primaryGenre);
+                }
 
-        // ✅ 반드시 "for문 위"에 선언!
-          void addRangeGenre(String g) {
-            final key = g.isEmpty ? '기타' : g;
-            rangeGenreCount[key] = (rangeGenreCount[key] ?? 0) + 1;
-          }
+                final pieEntries = rangeGenreCount.entries.toList()
+                  ..sort((a, b) => b.value.compareTo(a.value));
 
-        // ✅ 대표 장르 1개만 카운트 (총 기록 수와 합이 일치)
-          for (final r in rangeRecords) {
-            final gs = r.movie.genres;
-            final primaryGenre = gs.isEmpty ? '기타' : gs.first;
-            addRangeGenre(primaryGenre);
-          }
+                List<MapEntry<String, int>> pie = pieEntries.take(5).toList();
+                final rest = pieEntries.skip(5).fold<int>(0, (s, e) => s + e.value);
+                if (rest > 0) pie = [...pie, MapEntry('기타', rest)];
 
-          final pieEntries = rangeGenreCount.entries.toList()
-            ..sort((a, b) => b.value.compareTo(a.value));
+                // ✅ 관람추이(전체 기록 기반)
+                final trendPoints = _buildTrend(allRecords, _trend);
 
-          List<MapEntry<String, int>> pie = pieEntries.take(5).toList();
-          final rest = pieEntries.skip(5).fold<int>(0, (s, e) => s + e.value);
-          if (rest > 0) pie = [...pie, MapEntry('기타', rest)];
+                // ✅ 추천(20개): 선호장르 우선 + 높은 평점
+                final watchedIds = records.map((r) => r.movie.id).toSet();
+                final allMoviesList = appState.movies;
 
+                final recs = _buildRecommendations(
+                  favoriteGenre: favoriteGenre,
+                  watchedIds: watchedIds,
+                  genreAvgRating: {
+                    for (final k in genreN.keys) k: genreSum[k]! / genreN[k]!
+                  },
+                  allMoviesList: allMoviesList,
+                  limit: 20,
+                );
 
-
-
-
-          // ✅ 관람추이 데이터(전체 기록 기반)
-          final trendPoints = _buildTrend(allRecords, _trend);
-
-          // ✅ 추천(전체 기록 기반)
-          final allMoviesList = appState.movies;
-          final watchedIds = records.map((r) => r.movie.id).toSet();
-          final recs = _buildRecommendations(
-            favoriteGenre: favoriteGenre,
-            watchedIds: watchedIds,
-            genreAvgRating: {for (final k in genreN.keys) k: genreSum[k]! / genreN[k]!},
-            allMoviesList: allMoviesList,
-          );
-
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            children: [
-              // ✅ 탐색탭의 "탐색" 위치에만 "내 취향 분석"
-              Text(
-                '내 취향 분석',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // ✅ 통계카드 3개
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatCard(
-                      title: '총 기록 수',
-                      value: '$totalCount',
-                      valueColor: const Color(0xFFFF4FA0),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _StatCard(
-                      title: '평균 별점',
-                      value: avgRating.toStringAsFixed(1),
-                      valueColor: const Color(0xFFFFC107),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _StatCard(
-                      title: '선호 장르',
-                      value: favoriteGenre,
-                      valueColor: const Color(0xFF2DBB7F),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 14),
-
-              // ✅ (추가) 장르 분포 (도넛 + 범례)
-              _Panel(
-                title: '장르 분포',
-                trailing: Row(
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   children: [
-                    _ChipPill(
-                      label: '전체',
-                      selected: _range == _RangeMode.all,
-                      onTap: () => setState(() => _range = _RangeMode.all),
+                    const SizedBox(height: 6),
+
+                    // ✅ 스크롤되는 상단 헤더
+                    const Center(child: _TasteTopHeader()),
+                    const SizedBox(height: 14),
+
+                    // ✅ 통계카드 3개
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _StatCard(
+                            title: '총 기록 수',
+                            value: '$totalCount',
+                            valueColor: const Color(0xFFFF4FA0),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _StatCard(
+                            title: '평균 별점',
+                            value: avgRating.toStringAsFixed(1),
+                            valueColor: const Color(0xFFFFC107),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _StatCard(
+                            title: '선호 장르',
+                            value: favoriteGenre,
+                            valueColor: const Color(0xFF2DBB7F),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    _ChipPill(
-                      label: '1년',
-                      selected: _range == _RangeMode.oneYear,
-                      onTap: () => setState(() => _range = _RangeMode.oneYear),
+
+                    const SizedBox(height: 14),
+
+                    // ✅ 장르 분포
+                    _Panel(
+                      title: '장르 분포',
+                      trailing: Row(
+                        children: [
+                          _ChipPill(
+                            label: '전체',
+                            selected: _range == _RangeMode.all,
+                            onTap: () => setState(() => _range = _RangeMode.all),
+                          ),
+                          const SizedBox(width: 8),
+                          _ChipPill(
+                            label: '1년',
+                            selected: _range == _RangeMode.oneYear,
+                            onTap: () => setState(() => _range = _RangeMode.oneYear),
+                          ),
+                          const SizedBox(width: 8),
+                          _ChipPill(
+                            label: '3년',
+                            selected: _range == _RangeMode.threeYear,
+                            onTap: () => setState(() => _range = _RangeMode.threeYear),
+                          ),
+                        ],
+                      ),
+                      child: pie.isEmpty
+                          ? const _EmptySmall(text: '해당 기간에 기록이 없어요.')
+                          : _GenreDonutLegendChart(data: pie),
                     ),
-                    const SizedBox(width: 8),
-                    _ChipPill(
-                      label: '3년',
-                      selected: _range == _RangeMode.threeYear,
-                      onTap: () => setState(() => _range = _RangeMode.threeYear),
+
+                    const SizedBox(height: 14),
+
+                    // ✅ 관람 추이
+                    _Panel(
+                      title: '관람 추이',
+                      trailing: Row(
+                        children: [
+                          _ChipPill(
+                            label: '월별',
+                            selected: _trend == _TrendMode.monthly,
+                            onTap: () => setState(() => _trend = _TrendMode.monthly),
+                          ),
+                          const SizedBox(width: 8),
+                          _ChipPill(
+                            label: '연도별',
+                            selected: _trend == _TrendMode.yearly,
+                            onTap: () => setState(() => _trend = _TrendMode.yearly),
+                          ),
+                        ],
+                      ),
+                      child: totalCount == 0
+                          ? const _EmptySmall(text: '기록이 쌓이면 추이가 보여요.')
+                          : (trendPoints.length <= 1
+                              ? _SinglePointTrendSummary(points: trendPoints)
+                              : Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: _LineTrendChart(points: trendPoints),
+                                )),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // ✅ 추천 영화
+                    Text(
+                      '추천 영화',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    if (recs.isEmpty)
+                      const _EmptySmall(text: '추천할 영화가 아직 없어요.')
+                    else
+                      ...recs.map((m) {
+                        final g = (m.genres.isEmpty) ? '기타' : m.genres.first;
+                        final reason =
+                            (favoriteGenre != '—' && m.genres.contains(favoriteGenre))
+                                ? '$favoriteGenre 취향 기반 추천'
+                                : '$g도 좋아하실 것 같아요';
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _RecommendCard(
+                            movie: m,
+                            reason: reason,
+                            onAdd: () => openAddRecordSheet(context, m),
+                          ),
+                        );
+                      }),
+
+                    const SizedBox(height: 10),
+
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.black12),
+                      ),
+                      child: Text(
+                        '💡 추천은 내 기록(별점/장르)을 기반으로 만들어져요',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: textSecondary,
+                        ),
+                      ),
                     ),
                   ],
-                ),
-                child: pie.isEmpty
-                    ? const _EmptySmall(text: '해당 기간에 기록이 없어요.')
-                    : _GenreDonutLegendChart(data: pie),
-              ),
-
-              const SizedBox(height: 14),
-
-
-
-              // ✅ 관람 추이 그래프
-              _Panel(
-                title: '관람 추이',
-                trailing: Row(
-                  children: [
-                    _ChipPill(
-                      label: '월별',
-                      selected: _trend == _TrendMode.monthly,
-                      onTap: () => setState(() => _trend = _TrendMode.monthly),
-                    ),
-                    const SizedBox(width: 8),
-                    _ChipPill(
-                      label: '연도별',
-                      selected: _trend == _TrendMode.yearly,
-                      onTap: () => setState(() => _trend = _TrendMode.yearly),
-                    ),
-                  ],
-                ),
-                child: totalCount == 0
-                    ? const _EmptySmall(text: '기록이 쌓이면 추이가 보여요.')
-                    : (trendPoints.length <= 1
-                        ? _SinglePointTrendSummary(points: trendPoints)
-                        : Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: _LineTrendChart(points: trendPoints),
-                          )),
-              ),
-
-              const SizedBox(height: 16),
-
-              // 추천 영화
-              Text(
-                '추천 영화',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: textPrimary,
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              if (recs.isEmpty)
-                const _EmptySmall(text: '추천할 영화가 아직 없어요.')
-              else
-                ...recs.map((m) {
-                  final g = (m.genres.isEmpty) ? '기타' : m.genres.first;
-                  final reason = (favoriteGenre != '—' && m.genres.contains(favoriteGenre))
-                      ? '$favoriteGenre 취향 기반 추천'
-                      : '$g 취향도 좋아하실 것 같아요';
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _RecommendCard(
-                      movie: m,
-                      reason: reason,
-                      onAdd: () => openAddRecordSheet(context, m),
-                    ),
-                  );
-                }),
-
-              const SizedBox(height: 10),
-
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.black12),
-                ),
-                child: Text(
-                  '💡 추천은 내 기록(별점/장르)을 기반으로 만들어져요',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  // ---------------- Logic ----------------
 
   List<_TrendPoint> _buildTrend(List<Record> records, _TrendMode mode) {
     final Map<String, int> cnt = {};
@@ -313,31 +311,85 @@ class _TasteScreenState extends State<TasteScreen> {
     return keys.map((k) => _TrendPoint(label: k, value: cnt[k]!.toDouble())).toList();
   }
 
+  /// ✅ 추천 20개: "선호장르 우선" + "평점 높은 순"
   List<Movie> _buildRecommendations({
     required String favoriteGenre,
     required Set<String> watchedIds,
     required Map<String, double> genreAvgRating,
     required List<Movie> allMoviesList,
+    int limit = 20,
   }) {
     final candidates = allMoviesList.where((m) => !watchedIds.contains(m.id)).toList();
 
-    if (favoriteGenre != '—') {
-      final fav = candidates.where((m) => m.genres.contains(favoriteGenre)).toList()
-        ..sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
-      if (fav.isNotEmpty) return fav.take(2).toList();
+    // 1) 선호 장르 우선 묶음
+    final List<Movie> fav = (favoriteGenre != '—')
+        ? candidates.where((m) => m.genres.contains(favoriteGenre)).toList()
+        : <Movie>[];
+
+    fav.sort((a, b) => b.voteAverage.compareTo(a.voteAverage)); // 평점 높은 순
+
+    // 2) 나머지(선호 장르 제외)도 평점 높은 순
+    final Set<String> favIds = fav.map((m) => m.id).toSet();
+    final rest = candidates.where((m) => !favIds.contains(m.id)).toList()
+      ..sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
+
+    final out = <Movie>[];
+    out.addAll(fav.take(limit));
+    if (out.length < limit) {
+      out.addAll(rest.take(limit - out.length));
     }
 
-    if (genreAvgRating.isNotEmpty) {
-      final best = genreAvgRating.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-      final g = best.first.key;
+    // (선택) 그래도 동일 평점이 많으면, 사용자가 별점 높게 준 장르를 살짝 우대하고 싶으면 여기서 추가 가중치도 가능
+    // 지금은 "선호장르 우선 + 평점"에 충실하게 유지.
 
-      final byG = candidates.where((m) => m.genres.contains(g)).toList()
-        ..sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
-      if (byG.isNotEmpty) return byG.take(2).toList();
-    }
+    return out;
+  }
+}
 
-    candidates.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
-    return candidates.take(2).toList();
+// ---------------- Header ----------------
+
+class _TasteTopHeader extends StatelessWidget {
+  const _TasteTopHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Image.asset(
+          'assets/writing_character.png',
+          width: 88,
+          height: 88,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(width: 14),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text(
+              '영화 취향 분석',
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF7E74C9),
+                letterSpacing: 0.6,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              '당신이 기록한 일기를 바탕으로 분석해드려요~',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF9A9A9A),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 
@@ -364,7 +416,7 @@ class _StatCard extends StatelessWidget {
         border: Border.all(color: Colors.black12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -421,7 +473,7 @@ class _Panel extends StatelessWidget {
           border: Border.all(color: Colors.black12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withOpacity(0.04),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -566,9 +618,9 @@ class _LineTrendChart extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 200, // ✅ 더 여유 있게
+      height: 200,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(6, 8, 6, 8), // ✅ 바깥 여백
+        padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
         child: CustomPaint(
           painter: _LinePainter(points),
         ),
@@ -585,13 +637,11 @@ class _LinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) return;
 
-    // ✅ 바깥 padding(라벨/점 잘림 방지)
     const padL = 56.0;
     const padT = 20.0;
     const padR = 26.0;
     const padB = 44.0;
 
-    // 내부 여백
     const innerX = 12.0;
     const innerY = 8.0;
 
@@ -613,16 +663,14 @@ class _LinePainter extends CustomPainter {
     const minV = 0.0;
 
     final gridPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.12)
+      ..color = Colors.black.withOpacity(0.12)
       ..strokeWidth = 1;
 
-    // y grid
     for (int i = 0; i <= 2; i++) {
       final y = plot.top + plot.height * i / 2;
       canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), gridPaint);
     }
 
-    // x axis
     canvas.drawLine(Offset(plot.left, plot.bottom), Offset(plot.right, plot.bottom), gridPaint);
 
     double xForIndex(int i) {
@@ -650,10 +698,8 @@ class _LinePainter extends CustomPainter {
 
     final dotPaint = Paint()..color = const Color(0xFFFF5C9A);
 
-    // ✅ 클립을 plot보다 조금 크게 (점/선 잘림 방지)
     canvas.save();
-    final clip = plot.inflate(12);
-    canvas.clipRect(clip);
+    canvas.clipRect(plot.inflate(12));
 
     final path = Path()..moveTo(pt(0).dx, pt(0).dy);
     for (int i = 1; i < points.length; i++) {
@@ -667,12 +713,11 @@ class _LinePainter extends CustomPainter {
 
     canvas.restore();
 
-    // 라벨
     final tp = TextPainter(textDirection: TextDirection.ltr);
     final labelStyle = TextStyle(
       fontSize: 11.5,
       fontWeight: FontWeight.w800,
-      color: Colors.black.withValues(alpha: 0.45),
+      color: Colors.black.withOpacity(0.45),
     );
 
     for (int i = 0; i < points.length; i++) {
@@ -722,7 +767,7 @@ class _RecommendCard extends StatelessWidget {
         border: Border.all(color: Colors.black12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -872,41 +917,31 @@ class _RecommendCard extends StatelessWidget {
   }
 }
 
-
 // ---------------- Donut + Legend ----------------
 
 class _GenreDonutLegendChart extends StatelessWidget {
   final List<MapEntry<String, int>> data;
   const _GenreDonutLegendChart({required this.data});
 
-  // ✅ 장르별 색상 고정 팔레트
   static const Map<String, Color> _fixedColors = {
-    '코미디': Color(0xFFFF6F91), // 핑크
-    '범죄': Color(0xFF2F2F2F),   // 거의 블랙
-    '드라마': Color(0xFF4D96FF), // 블루
-    '액션': Color(0xFFFFC75F),   // 옐로
-    '애니메이션': Color(0xFF00C9A7), // 민트
-    'SF': Color(0xFF845EC2),     // 보라
-    '스릴러': Color(0xFFFF8066), // 오렌지레드
-    '기타': Color(0xFFBDBDBD),   // 회색
+    '코미디': Color(0xFFFF6F91),
+    '범죄': Color(0xFF2F2F2F),
+    '드라마': Color(0xFF4D96FF),
+    '액션': Color(0xFFFFC75F),
+    '애니메이션': Color(0xFF00C9A7),
+    'SF': Color(0xFF845EC2),
+    '스릴러': Color(0xFFFF8066),
+    '기타': Color(0xFFBDBDBD),
   };
 
   Color _colorForGenre(String genre) {
-    // 1️⃣ 고정 색이 있으면 무조건 그걸 사용
     final fixed = _fixedColors[genre];
     if (fixed != null) return fixed;
-
-    // 2️⃣ 나머지는 장르명 기반으로 항상 같은 색 생성
     final h = (genre.hashCode & 0x7fffffff) % 360;
-
-    const s = 0.65; // 채도
-    const v = 0.90; // 명도
-
+    const s = 0.65;
+    const v = 0.90;
     return HSVColor.fromAHSV(1.0, h.toDouble(), s, v).toColor();
   }
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -1015,7 +1050,6 @@ class _DonutPainter extends CustomPainter {
       start += sweep;
     }
 
-    // 가운데 구멍(도넛)
     final center = Offset(size.width / 2, size.height / 2);
     final hole = Paint()..color = Colors.white;
     canvas.drawCircle(center, size.width * 0.24, hole);
