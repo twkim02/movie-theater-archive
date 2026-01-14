@@ -17,20 +17,30 @@ movie-theater-archive/
 │   │   ├── movie.dart           # 영화 모델
 │   │   ├── record.dart          # 관람 기록 모델
 │   │   ├── wishlist.dart        # 위시리스트 모델
-│   │   └── summary.dart         # 통계/취향 분석 모델
+│   │   ├── summary.dart         # 통계/취향 분석 모델
+│   │   ├── theater.dart         # 영화관 모델
+│   │   ├── lottecinema_data.dart # 롯데시네마 데이터 모델
+│   │   └── megabox_data.dart    # 메가박스 데이터 모델
 │   ├── screens/                  # 화면 위젯
 │   │   ├── root_screen.dart     # 하단 네비게이션 바 포함 루트 화면
 │   │   ├── explore_screen.dart  # 탐색 탭 (영화 검색 및 목록)
 │   │   ├── diary_screen.dart    # 일기 탭 (관람 기록 목록)
 │   │   ├── saved_screen.dart    # 저장 탭 (위시리스트)
-│   │   └── taste_screen.dart    # 취향 탭 (통계 및 추천)
+│   │   ├── taste_screen.dart    # 취향 탭 (통계 및 추천)
+│   │   ├── theater_screen.dart  # 상영관 보기 화면
+│   │   └── test_screen.dart     # 개발/테스트 화면
 │   ├── widgets/                  # 재사용 가능한 위젯
-│   │   └── add_record_sheet.dart # 기록 추가 바텀 시트
+│   │   ├── add_record_sheet.dart # 기록 추가 바텀 시트
+│   │   ├── theater_card.dart    # 영화관 카드 위젯
+│   │   ├── movie_diary_popup.dart # 영화 일기 팝업
+│   │   └── splash_screen.dart   # 스플래시 화면
 │   ├── data/                     # 더미 데이터 및 레거시 저장소
 │   │   ├── dummy_movies.dart    # 더미 영화 데이터 (테스트용)
 │   │   ├── dummy_record.dart    # 더미 기록 데이터 (테스트용)
 │   │   ├── dummy_wishlist.dart # 더미 위시리스트 데이터 (테스트용)
 │   │   ├── dummy_summary.dart  # 더미 통계 데이터
+│   │   ├── dummy_theaters.dart # 더미 영화관 데이터 및 실제 영화관 조회
+│   │   ├── theater_repository.dart # 영화관 데이터 Repository
 │   │   ├── record_store.dart   # 기록 저장소 (@Deprecated)
 │   │   └── saved_store.dart    # 저장된 영화 ID 저장소 (@Deprecated)
 │   ├── database/                 # 데이터베이스 레이어
@@ -44,12 +54,22 @@ movie-theater-archive/
 │   │   ├── movie_initialization_service.dart  # 영화 초기화 서비스
 │   │   ├── movie_update_service.dart          # 영화 갱신 서비스
 │   │   ├── movie_db_initializer.dart          # 더미 데이터 초기화
-│   │   └── user_initialization_service.dart   # 사용자 초기화 서비스
+│   │   ├── user_initialization_service.dart   # 사용자 초기화 서비스
+│   │   ├── theater_schedule_service.dart      # 영화관 상영 시간표 서비스
+│   │   ├── movie_title_matcher.dart           # 영화 제목 매칭 서비스
+│   │   ├── lottecinema_movie_checker.dart      # 롯데시네마 상영 여부 확인
+│   │   └── megabox_movie_checker.dart          # 메가박스 상영 여부 확인
 │   ├── api/                      # 외부 API 클라이언트
 │   │   ├── tmdb_client.dart     # TMDb API 클라이언트
-│   │   └── tmdb_mapper.dart     # TMDb API 응답 매퍼
+│   │   ├── tmdb_mapper.dart     # TMDb API 응답 매퍼
+│   │   ├── kakao_local_client.dart # 카카오 로컬 API 클라이언트
+│   │   ├── kakao_local_api.dart   # 카카오 로컬 API 모델
+│   │   ├── lottecinema_client.dart # 롯데시네마 API 클라이언트
+│   │   ├── megabox_client.dart     # 메가박스 API 클라이언트
+│   │   └── theater_api.dart        # 영화관 API 통합
 │   ├── utils/                    # 유틸리티
-│   │   └── env_loader.dart      # 환경 변수 로더
+│   │   ├── env_loader.dart      # 환경 변수 로더
+│   │   └── csv_parser.dart      # CSV 파일 파서 (롯데시네마/메가박스)
 │   ├── state/                    # 전역 상태 관리
 │   │   └── app_state.dart      # AppState (Provider 기반)
 │   └── theme/                    # 테마 및 스타일
@@ -62,6 +82,19 @@ movie-theater-archive/
 │   ├── repositories/            # Repository 테스트
 │   ├── services/                # 서비스 테스트
 │   └── integration/             # 통합 테스트
+├── assets/                       # 앱 리소스
+│   ├── fonts/                   # 커스텀 폰트
+│   │   ├── Typo_Crayon B.ttf   # TypoCrayon 폰트
+│   │   └── BMYeonSung.ttf      # BMYeonSung 폰트
+│   ├── lottecinema/             # 롯데시네마 CSV 데이터
+│   │   ├── movie_now.csv       # 현재 상영 영화 목록
+│   │   ├── movie_upcoming.csv  # 개봉 예정 영화 목록
+│   │   └── theater.csv         # 영화관 목록
+│   ├── megabox/                 # 메가박스 CSV 데이터
+│   │   ├── movie.csv           # 영화 목록
+│   │   └── theater.csv         # 영화관 목록
+│   ├── moviary_icon.png        # 앱 아이콘 (구버전)
+│   └── new_moviary_icon.png    # 앱 아이콘 (신버전)
 ├── android/                      # Android 플랫폼 설정
 ├── ios/                          # iOS 플랫폼 설정
 ├── windows/                      # Windows 플랫폼 설정
@@ -73,6 +106,8 @@ movie-theater-archive/
 │   ├── TESTING_GUIDE.md       # 테스트 가이드
 │   └── [기타 테스트 요약 문서들]
 ├── reference_for_ai_agent/       # AI 에이전트 참조 문서
+├── reference_for_lottecinema_data/ # 롯데시네마 통합 참조 문서
+└── reference_for_megabox_data/     # 메가박스 통합 참조 문서
 │   ├── API_GUIDE.md            # API 명세서
 │   ├── DB_SCHEMA.md            # 데이터베이스 스키마
 │   ├── FUNCTIONAL_SPEC.md      # 기능 명세서
@@ -90,14 +125,15 @@ movie-theater-archive/
 |---------|------|---------------|
 | `lib/models/` | 데이터 모델 정의 | 영화, 기록, 위시리스트, 통계 모델 클래스 및 JSON 직렬화/역직렬화 |
 | `lib/screens/` | 화면 위젯 | 4개 탭 화면 (탐색, 일기, 저장, 취향) 및 루트 화면 |
-| `lib/widgets/` | 재사용 위젯 | 기록 추가 바텀 시트 등 공통 UI 컴포넌트 |
-| `lib/data/` | 더미 데이터 및 레거시 | 더미 데이터 제공 (테스트용), 레거시 저장소 (@Deprecated) |
+| `lib/widgets/` | 재사용 위젯 | 기록 추가 바텀 시트, 영화관 카드, 스플래시 화면 등 공통 UI 컴포넌트 |
+| `lib/data/` | 더미 데이터 및 레거시 | 더미 데이터 제공 (테스트용), 실제 영화관 조회 로직, 레거시 저장소 (@Deprecated) |
 | `lib/database/` | 데이터베이스 레이어 | SQLite 데이터베이스 헬퍼 클래스 (MovieDatabase) |
-| `lib/repositories/` | Repository 패턴 | 데이터 접근 로직 추상화 (Movie, Record, Wishlist, Tag) |
-| `lib/services/` | 비즈니스 로직 | 초기화, 갱신, 데이터 마이그레이션 서비스 |
-| `lib/api/` | 외부 API 클라이언트 | TMDb API 연동 및 데이터 변환 |
+| `lib/repositories/` | Repository 패턴 | 데이터 접근 로직 추상화 (Movie, Record, Wishlist, Tag, Theater) |
+| `lib/services/` | 비즈니스 로직 | 초기화, 갱신, 데이터 마이그레이션, 영화관 상영 시간표, 영화 제목 매칭 서비스 |
+| `lib/api/` | 외부 API 클라이언트 | TMDb API, 카카오 로컬 API, 롯데시네마 API, 메가박스 API 연동 |
 | `lib/state/` | 상태 관리 | Provider 기반 전역 상태 관리 (AppState) |
 | `lib/theme/` | 테마 설정 | 색상, 폰트 등 UI 테마 상수 |
+| `lib/utils/` | 유틸리티 | 환경 변수 로더, CSV 파서 (롯데시네마/메가박스 데이터) |
 | `test/` | 테스트 코드 | 단위 테스트, 통합 테스트, 영속성 테스트 |
 | `reference_for_ai_agent/` | 참조 문서 | API 명세, DB 스키마, 기능 명세 등 개발 가이드 |
 
@@ -119,8 +155,11 @@ movie-theater-archive/
   - 검색 결과를 최근 상영/모든 영화 섹션에 반영
 - **영화 액션**
   - **일기 쓰기 버튼**: 기록 추가 바텀 시트 열기
-  - **영화관 보기 버튼**: 최근 상영 영화에만 표시 (현재 스낵바로 구현)
+  - **영화관 보기 버튼**: 최근 상영 영화에만 표시 → `TheaterScreen`으로 이동
   - **북마크 토글**: 위시리스트 추가/제거 (DB에 저장)
+- **평점 표시**
+  - DB에 저장된 평점이 0.0인 경우 (신규 영화) 화면에 3.0으로 표시
+  - `displayVoteAverage` getter를 통해 표시용 평점 제공 (DB 값은 변경하지 않음)
 
 ### 2.2. 일기 탭 (Diary Screen)
 
@@ -174,7 +213,27 @@ movie-theater-archive/
   - 각 추천 영화에 추천 이유 표시
   - 일기 쓰기 및 북마크 추가 버튼 제공
 
-### 2.5. 기록 추가 기능
+### 2.5. 상영관 보기 화면 (Theater Screen)
+
+**파일:** `lib/screens/theater_screen.dart`
+
+#### 주요 기능
+- **주변 영화관 조회**
+  - 현재 위치 기반 주변 영화관 검색 (카카오 로컬 API)
+  - 거리순 정렬 (최대 5km 반경)
+  - 영화관 이름, 주소, 거리 표시
+- **상영 시간표 표시**
+  - 롯데시네마/메가박스 영화관: 실제 상영 시간표 표시
+  - 상영 시간, 상영관 이름, 잔여 좌석 정보 표시
+  - 기타 영화관: 안내 메시지 표시
+- **날짜 선택**
+  - 오늘부터 7일 후까지 날짜 선택 가능
+  - 날짜 변경 시 상영 시간표 자동 갱신
+- **예매 링크**
+  - 영화관별 예매 URL 생성 (롯데시네마, 메가박스, CGV, 기타)
+  - 카카오맵 길찾기 링크 제공
+
+### 2.6. 기록 추가 기능
 
 **파일:** `lib/widgets/add_record_sheet.dart`
 
@@ -217,6 +276,10 @@ movie-theater-archive/
 - `fromJson()`: JSON에서 Movie 객체 생성
 - `toJson()`: Movie 객체를 JSON으로 변환
 - `copyWith()`: 불변 객체 복사 및 수정
+- `displayVoteAverage`: 화면 표시용 평점 getter (0.0인 경우 3.0 반환)
+
+**특수 기능:**
+- `displayVoteAverage` getter: DB에 저장된 평점이 0.0인 경우 화면에 3.0으로 표시 (DB 값은 변경하지 않음)
 
 #### 3.1.2. Record (관람 기록)
 
@@ -301,6 +364,41 @@ movie-theater-archive/
 |--------|------|------|
 | `date` | `String` | 날짜 (YYYY 또는 YYYY-MM) |
 | `count` | `int` | 해당 기간에 본 영화 수 |
+
+#### 3.1.5. Theater (영화관)
+
+**파일:** `lib/models/theater.dart`
+
+| 필드명 | 타입 | 설명 | 필수 |
+|--------|------|------|------|
+| `id` | `String` | 영화관 고유 ID | ✅ |
+| `name` | `String` | 영화관 이름 | ✅ |
+| `address` | `String` | 영화관 주소 | ✅ |
+| `lat` | `double` | 위도 | ✅ |
+| `lng` | `double` | 경도 | ✅ |
+| `distanceKm` | `double` | 현재 위치로부터의 거리 (km) | ✅ |
+| `showtimes` | `List<Showtime>` | 상영 시간표 목록 | ✅ |
+| `bookingUrl` | `String` | 예매 URL | ✅ |
+
+**Showtime 클래스:**
+
+| 필드명 | 타입 | 설명 |
+|--------|------|------|
+| `start` | `String` | 상영 시작 시간 |
+| `end` | `String` | 상영 종료 시간 |
+| `screen` | `String` | 상영관 이름 |
+
+#### 3.1.6. LotteCinemaMovie, LotteCinemaTheater, LotteCinemaSchedule
+
+**파일:** `lib/models/lottecinema_data.dart`
+
+롯데시네마 API 응답을 위한 데이터 모델입니다.
+
+#### 3.1.7. MegaboxMovie, MegaboxTheater, MegaboxSchedule
+
+**파일:** `lib/models/megabox_data.dart`
+
+메가박스 API 응답을 위한 데이터 모델입니다.
 
 ### 3.2. 데이터베이스 스키마
 
@@ -401,6 +499,23 @@ movie-theater-archive/
    - 더미 데이터를 DB에 저장
    - 테스트 및 개발용
 
+5. **TheaterScheduleService** (`lib/services/theater_schedule_service.dart`)
+   - 롯데시네마/메가박스 영화관 상영 시간표 조회
+   - 영화 제목 매칭 및 영화관 정보 조회
+   - 5분 캐싱으로 API 호출 최소화
+
+6. **MovieTitleMatcher** (`lib/services/movie_title_matcher.dart`)
+   - TMDb 영화 제목과 롯데시네마/메가박스 영화 제목 매칭
+   - 다단계 매칭 전략 (정확 일치, 부분 일치, 특수문자 제거)
+
+7. **LotteCinemaMovieChecker** (`lib/services/lottecinema_movie_checker.dart`)
+   - TMDb 영화가 롯데시네마에서 상영 중인지 확인
+   - CSV 데이터 기반 확인
+
+8. **MegaboxMovieChecker** (`lib/services/megabox_movie_checker.dart`)
+   - TMDb 영화가 메가박스에서 상영 중인지 확인
+   - CSV 데이터 기반 확인
+
 #### 3.3.4. AppState (`lib/state/app_state.dart`)
 
 **타입**: `ChangeNotifier` (Provider 패턴)
@@ -450,11 +565,18 @@ movie-theater-archive/
 | `flutter` | SDK | Flutter 프레임워크 |
 | `cupertino_icons` | ^1.0.8 | iOS 스타일 아이콘 |
 | `provider` | ^6.1.5+1 | 상태 관리 (Provider 패턴) |
+| `google_fonts` | ^6.2.1 | Google Fonts 지원 |
 | `sqflite` | ^2.3.0 | SQLite 데이터베이스 |
 | `path` | ^1.8.3 | 파일 경로 처리 |
-| `http` | ^1.1.0 | HTTP 통신 (TMDb API) |
+| `http` | ^1.1.0 | HTTP 통신 (TMDb API, 카카오 로컬 API, 롯데시네마/메가박스 API) |
 | `flutter_dotenv` | ^5.1.0 | 환경 변수 관리 (API 키) |
 | `shared_preferences` | ^2.2.2 | 초기화 플래그 저장 |
+| `geolocator` | ^12.0.0 | 위치 정보 조회 (주변 영화관 검색) |
+| `url_launcher` | ^6.3.0 | 외부 링크 열기 (예매 사이트, 카카오맵) |
+| `image_picker` | ^1.1.2 | 이미지 선택 (기록 사진 업로드) |
+| `path_provider` | ^2.1.4 | 파일 경로 제공 |
+| `hive` | ^2.2.3 | 로컬 NoSQL 데이터베이스 |
+| `hive_flutter` | ^1.1.0 | Hive Flutter 통합 |
 
 ### 4.2. 개발 의존성
 
@@ -463,6 +585,9 @@ movie-theater-archive/
 | `flutter_test` | SDK | Flutter 테스트 프레임워크 |
 | `flutter_lints` | ^6.0.0 | Dart/Flutter 린트 규칙 |
 | `sqflite_common_ffi` | ^2.3.0 | 테스트용 SQLite (FFI) |
+| `hive_generator` | ^2.0.1 | Hive 타입 어댑터 생성 |
+| `build_runner` | ^2.4.9 | 코드 생성 도구 |
+| `flutter_launcher_icons` | ^0.13.1 | 앱 아이콘 생성 |
 
 ### 4.3. 패키지 상세 설명
 
@@ -511,6 +636,36 @@ final records = appState.records;
 **용도:**
 - 초기화 완료 플래그 저장
 - 앱 설정 저장
+
+#### 4.3.6. geolocator (^12.0.0)
+
+**용도:**
+- 현재 위치 조회
+- 주변 영화관 검색을 위한 위치 정보 제공
+
+#### 4.3.7. url_launcher (^6.3.0)
+
+**용도:**
+- 외부 브라우저로 링크 열기
+- 영화관 예매 사이트, 카카오맵 길찾기 링크 열기
+
+#### 4.3.8. google_fonts (^6.2.1)
+
+**용도:**
+- Google Fonts 통합
+- 커스텀 폰트 지원 (TypoCrayon 등)
+
+#### 4.3.9. image_picker (^1.1.2)
+
+**용도:**
+- 갤러리에서 이미지 선택
+- 기록 사진 업로드 기능
+
+#### 4.3.10. hive, hive_flutter
+
+**용도:**
+- 로컬 NoSQL 데이터베이스
+- 빠른 키-값 저장소
 
 ---
 
@@ -598,12 +753,29 @@ SQLite
 | `textPrimary` | `#222222` | 주요 텍스트 색상 |
 | `textSecondary` | `#777777` | 보조 텍스트 색상 |
 
-### 6.2. UI 스타일 특징
+### 6.2. 폰트 설정
+
+**파일:** `lib/app.dart`, `pubspec.yaml`
+
+- **기본 폰트**: `TypoCrayon` (assets/fonts/Typo_Crayon B.ttf)
+- **추가 폰트**: `BMYeonSung` (assets/fonts/BMYeonSung.ttf)
+- **Google Fonts**: `google_fonts` 패키지로 추가 폰트 지원 가능
+
+### 6.3. UI 스타일 특징
 
 - **카드 기반 디자인**: 둥근 모서리, 그림자 효과
 - **그리드 레이아웃**: 3열 그리드로 영화/기록 표시
 - **바텀 시트**: 기록 추가 시 모달 바텀 시트 사용
 - **칩(Chip) UI**: 정렬 옵션, 태그 선택 등에 사용
+- **스플래시 화면**: 앱 시작 시 스플래시 화면 표시
+
+### 6.4. 앱 아이콘
+
+**파일:** `assets/new_moviary_icon.png`, `pubspec.yaml`
+
+- **아이콘 생성**: `flutter_launcher_icons` 패키지 사용
+- **적응형 아이콘**: Android/iOS 적응형 아이콘 지원
+- **아이콘 경로**: `assets/new_moviary_icon.png`
 
 ---
 
@@ -653,10 +825,11 @@ SQLite
 
 ### 8.3. 기능 확장
 
-- 기록 수정/삭제 기능 (UI 구현)
-- 상영관 정보 연동
+- 기록 수정/삭제 기능 (UI 구현) ✅ 부분 완료
+- 상영관 정보 연동 ✅ 완료 (롯데시네마, 메가박스)
 - 소셜 기능 (기록 공유 등)
 - 다중 사용자 지원
+- CGV 상영 시간표 연동 (향후)
 
 ### 8.4. 성능 최적화
 
@@ -666,18 +839,83 @@ SQLite
 
 ---
 
-## 9. 참고 문서
+## 9. 외부 API 통합
+
+### 9.1. TMDb API
+
+**파일:** `lib/api/tmdb_client.dart`, `lib/api/tmdb_mapper.dart`
+
+- 영화 검색 및 상세 정보 조회
+- 현재 상영 중인 영화 목록
+- 인기 영화 목록
+- 장르 정보 조회
+
+### 9.2. 카카오 로컬 API
+
+**파일:** `lib/api/kakao_local_client.dart`, `lib/api/kakao_local_api.dart`
+
+- 주변 영화관 검색 (키워드 검색)
+- 위치 기반 검색 (반경 5km)
+- 거리순 정렬
+
+### 9.3. 롯데시네마 API
+
+**파일:** `lib/api/lottecinema_client.dart`
+
+- 상영 시간표 조회
+- CSV 데이터 기반 영화/영화관 정보 (`assets/lottecinema/`)
+- 영화 제목 매칭을 통한 상영 여부 확인
+
+### 9.4. 메가박스 API
+
+**파일:** `lib/api/megabox_client.dart`
+
+- 상영 시간표 조회
+- CSV 데이터 기반 영화/영화관 정보 (`assets/megabox/`)
+- 영화 제목 매칭을 통한 상영 여부 확인
+
+### 9.5. CSV 데이터 관리
+
+**파일:** `lib/utils/csv_parser.dart`
+
+- 롯데시네마/메가박스 영화 및 영화관 정보 파싱
+- 인메모리 캐싱으로 성능 최적화
+- 영화관 이름 매칭 (부분 일치, 프리픽스 제거 지원)
+
+---
+
+## 10. 참고 문서
 
 - **API 명세서**: `reference_for_ai_agent/API_GUIDE.md`
 - **DB 스키마**: `reference_for_ai_agent/DB_SCHEMA.md`
 - **기능 명세서**: `reference_for_ai_agent/FUNCTIONAL_SPEC.md`
 - **영화 DB 마이그레이션 계획**: `reference_for_ai_agent/MOVIE_DB_MIGRATION_PLAN.md`
 - **기록/위시리스트 DB 마이그레이션 계획**: `reference_for_ai_agent/RECORD_WISHLIST_DB_MIGRATION_PLAN.md`
+- **롯데시네마 통합 계획**: `reference_for_lottecinema_data/LOTTECINEMA_INTEGRATION_PLAN.md`
+- **롯데시네마 테스트 체크리스트**: `reference_for_lottecinema_data/TEST_CHECKLIST.md`
+- **메가박스 통합 계획**: `reference_for_megabox_data/MEGABOX_INTEGRATION_PLAN.md`
+- **메가박스 테스트 체크리스트**: `reference_for_megabox_data/TEST_CHECKLIST.md`
 - **테스트 가이드**: `docs/TESTING_GUIDE.md`
 
 ---
 
+## 11. 주요 변경 이력
+
+### 2026년 1월 (최신)
+
+- ✅ **카카오 로컬 API 통합**: 주변 영화관 검색 기능 추가
+- ✅ **상영관 보기 화면**: `TheaterScreen` 추가, 상영 시간표 표시
+- ✅ **롯데시네마 통합**: 상영 시간표 조회, 영화 상영 여부 확인
+- ✅ **메가박스 통합**: 상영 시간표 조회, 영화 상영 여부 확인
+- ✅ **앱 아이콘**: `flutter_launcher_icons`로 아이콘 생성
+- ✅ **디자인 개선**: 커스텀 폰트 추가 (TypoCrayon), 스플래시 화면 추가
+- ✅ **평점 표시 개선**: 신규 영화(0.0 평점)는 화면에 3.0으로 표시
+- ✅ **예매 링크**: 영화관별 예매 URL 자동 생성
+- ✅ **버그 수정**: 다양한 버그 수정 및 안정성 개선
+
+---
+
 **문서 작성일**: 2026년 1월  
-**최종 업데이트**: 2026년 1월 (DB 마이그레이션 완료 반영)  
+**최종 업데이트**: 2026년 1월 (롯데시네마/메가박스 통합, 상영관 보기 기능 추가 반영)  
 **프로젝트 버전**: 1.0.0+1  
 **Flutter SDK**: ^3.10.7
