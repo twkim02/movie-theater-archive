@@ -64,6 +64,19 @@ flutter:
     - assets/new_moviary_icon.png
     - assets/lottecinema/
     - assets/megabox/
+    - assets/bg_paper.png
+    - assets/character.png
+    - assets/logo.png
+    - assets/characterlogo.png
+    - assets/checktape.png
+    - assets/pinktape.png
+    - assets/yellowtape.png
+    - assets/purpletape.png
+    - assets/purpletapeshort.png 
+    - assets/notebook_page.png   
+    - assets/bubble_long.png
+    - assets/happy_character.png
+    - assets/writing_character.png
     - env.json
 
   fonts:

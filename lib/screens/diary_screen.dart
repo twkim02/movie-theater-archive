@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../theme/colors.dart';
 import '../models/record.dart';
 import '../state/app_state.dart';
-
-// ✅ 새로 추가한 기록 팝업용 모델/위젯
 import '../widgets/movie_diary_popup.dart';
 
 enum RecordSort { latest, rating, mostWatched }
@@ -16,15 +15,14 @@ class DiaryScreen extends StatefulWidget {
   State<DiaryScreen> createState() => _DiaryScreenState();
 }
 
-/// ✅ "많이 본 순"에서만 쓰는 영화별 묶음 아이템
 class _MovieDiaryItem {
   final String movieId;
   final String title;
   final String posterUrl;
 
-  final int watchCount; // N회 관람
-  final double avgRating; // 평균 별점
-  final DateTime latestWatchDate; // tie-breaker
+  final int watchCount;
+  final double avgRating;
+  final DateTime latestWatchDate;
 
   _MovieDiaryItem({
     required this.movieId,
@@ -51,15 +49,12 @@ class _DiaryScreenState extends State<DiaryScreen> {
     super.dispose();
   }
 
-
-
   String _formatDate(DateTime d) {
     final mm = d.month.toString().padLeft(2, '0');
     final dd = d.day.toString().padLeft(2, '0');
     return '${d.year}-$mm-$dd';
   }
 
-  // ✅ YYYYMMDD 숫자 입력을 DateTime으로 파싱
   DateTime? _parseYYYYMMDD(String raw) {
     final s = raw.trim();
     if (s.length != 8) return null;
@@ -72,13 +67,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
     if (d < 1 || d > 31) return null;
 
     final dt = DateTime(y, m, d);
-    // DateTime 자동 보정 방지(예: 20250230)
     if (dt.year != y || dt.month != m || dt.day != d) return null;
 
     return dt;
   }
 
-  // ✅ 달력 대신 숫자로 기간 입력 다이얼로그
   Future<void> _openRangeInputDialog() async {
     final fromCtrl = TextEditingController(
       text: _fromDate == null
@@ -175,16 +168,14 @@ class _DiaryScreenState extends State<DiaryScreen> {
     );
   }
 
-  // ✅ 검색(제목/한줄평)
   bool _matchesQuery(Record r) {
     if (_query.trim().isEmpty) return true;
-    final q = _query.trim();
-    final titleMatch = r.movie.title.toLowerCase().contains(q.toLowerCase());
-    final oneLinerMatch = r.oneLiner?.toLowerCase().contains(q.toLowerCase()) ?? false;
+    final q = _query.trim().toLowerCase();
+    final titleMatch = r.movie.title.toLowerCase().contains(q);
+    final oneLinerMatch = r.oneLiner?.toLowerCase().contains(q) ?? false;
     return titleMatch || oneLinerMatch;
   }
 
-  // ✅ 기간 필터(Record 단위)
   bool _matchesRange(Record r) {
     if (_fromDate == null || _toDate == null) return true;
 
@@ -195,7 +186,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
     return !d.isBefore(from) && !d.isAfter(to);
   }
 
-  /// ✅ movieId -> 최초 관람 record.id
   Map<String, int> _earliestRecordIdByMovie(List<Record> records) {
     final Map<String, Record> earliest = {};
 
@@ -224,10 +214,9 @@ class _DiaryScreenState extends State<DiaryScreen> {
   bool _isAutoRewatch(Record r, Map<String, int> earliestIdMap) {
     final earliestId = earliestIdMap[r.movie.id];
     if (earliestId == null) return false;
-    return r.id != earliestId; // 최초 기록이 아니면 재관람
+    return r.id != earliestId;
   }
 
-  /// ✅ 최신/평점 순(Record 단위로 그대로)
   List<Record> _applyFilterAndSortRecords(List<Record> records) {
     final filtered = records.where((r) => _matchesQuery(r) && _matchesRange(r)).toList();
 
@@ -235,12 +224,10 @@ class _DiaryScreenState extends State<DiaryScreen> {
       switch (_sort) {
         case RecordSort.latest:
           return b.watchDate.compareTo(a.watchDate);
-
         case RecordSort.rating:
           final byRating = b.rating.compareTo(a.rating);
           if (byRating != 0) return byRating;
           return b.watchDate.compareTo(a.watchDate);
-
         case RecordSort.mostWatched:
           return b.watchDate.compareTo(a.watchDate);
       }
@@ -249,7 +236,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
     return filtered;
   }
 
-  /// ✅ 많이 본 순: 필터 적용된 records를 영화별로 묶기
   List<_MovieDiaryItem> _groupForMostWatched(List<Record> filteredRecords) {
     final Map<String, List<Record>> byMovie = {};
     for (final r in filteredRecords) {
@@ -261,13 +247,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
       final list = entry.value;
       final any = list.first;
 
-      final int watchCount = list.length;
+      final watchCount = list.length;
 
       double sum = 0.0;
-      for (final r in list) {
-        sum += r.rating;
-      }
-      final double avgRating = watchCount == 0 ? 0.0 : (sum / watchCount);
+      for (final r in list) sum += r.rating;
+      final avgRating = watchCount == 0 ? 0.0 : (sum / watchCount);
 
       DateTime latest = list.first.watchDate;
       for (final r in list) {
@@ -299,232 +283,231 @@ class _DiaryScreenState extends State<DiaryScreen> {
     return items;
   }
 
+  String _sortLabel() {
+    switch (_sort) {
+      case RecordSort.latest:
+        return "최신 관람순";
+      case RecordSort.rating:
+        return "평점 순";
+      case RecordSort.mostWatched:
+        return "많이 본 순";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // ✅ SavedScreen과 동일한 기준
+    const double contentShiftRight = 20;
+    const double innerWidthRatio = 0.90;
+
     return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          '무비어리',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-      ),
-      body: SafeArea(
-        child: Consumer<AppState>(
-          builder: (context, appState, _) {
-            final records = appState.records;
-            final earliestIdMap = _earliestRecordIdByMovie(records);
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/notebook_page.png',
+              fit: BoxFit.cover,
+            ),
+          ),
+          SafeArea(
+            child: Consumer<AppState>(
+              builder: (context, appState, _) {
+                final records = appState.records;
+                final earliestIdMap = _earliestRecordIdByMovie(records);
 
-            final filtered = records.where((r) => _matchesQuery(r) && _matchesRange(r)).toList();
-            final bool isMostWatchedView = _sort == RecordSort.mostWatched;
+                final filtered = records.where((r) => _matchesQuery(r) && _matchesRange(r)).toList();
+                final isMostWatchedView = _sort == RecordSort.mostWatched;
 
-            final List<Record> shownRecords =
-                isMostWatchedView ? const [] : _applyFilterAndSortRecords(records);
+                final shownRecords = isMostWatchedView
+                    ? const <Record>[]
+                    : _applyFilterAndSortRecords(records);
 
-            final List<_MovieDiaryItem> shownMovies =
-                isMostWatchedView ? _groupForMostWatched(filtered) : const [];
+                final shownMovies = isMostWatchedView
+                    ? _groupForMostWatched(filtered)
+                    : const <_MovieDiaryItem>[];
 
-            final bool isEmpty = isMostWatchedView ? shownMovies.isEmpty : shownRecords.isEmpty;
+                final isEmpty = isMostWatchedView ? shownMovies.isEmpty : shownRecords.isEmpty;
 
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "기록",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: textPrimary,
+                      SizedBox(
+                        height: 92,
+                        child: Stack(
+                          children: [
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Transform.rotate(
+                                angle: -0.06,
+                                child: Image.asset(
+                                  'assets/character.png',
+                                  width: 86,
+                                ),
+                              ),
+                            ),
+                            const Align(
+                              alignment: Alignment.center,
+                              child: Padding(
+                                padding: EdgeInsets.only(bottom: 18),
+                                child: Text(
+                                  '내 일기장',
+                                  style: TextStyle(
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF7E74C9),
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Padding(
+                                padding: EdgeInsets.only(top: 18),
+                                child: _SortDropdown(
+                                  label: "최신 관람순",
+                                  onSelected: null,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        "일기장",
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
 
-                      // 검색창
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.black12),
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: (v) => setState(() => _query = v),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            icon: Icon(Icons.search, size: 20),
-                            hintText: "내 일기 검색 (제목/한줄평)",
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
+                      const SizedBox(height: 0),
 
-                      const SizedBox(height: 12),
+                      Expanded(
+                        child: Center(
+                          child: Container(
+                            width: MediaQuery.of(context).size.width * innerWidthRatio,
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
+                            child: Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(left: contentShiftRight),
+                                  child: _SearchBar(
+                                    controller: _searchController,
+                                    hintText: "일기 검색 (제목/한줄평)",
+                                    onChanged: (v) => setState(() => _query = v),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Expanded(
+                                  child: isEmpty
+                                      ? Center(
+                                          child: Text(
+                                            records.isEmpty
+                                                ? "아직 기록이 없어요.\n탐색에서 기록 추가를 눌러 추가해보세요!"
+                                                : "검색/필터 결과가 없어요.",
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: textSecondary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        )
+                                      : Padding(
+                                          padding: const EdgeInsets.only(left: contentShiftRight),
+                                          child: GridView.builder(
+                                            itemCount: isMostWatchedView ? shownMovies.length : shownRecords.length,
+                                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                              crossAxisCount: 3,
+                                              crossAxisSpacing: 10,
+                                              mainAxisSpacing: 12,
+                                              childAspectRatio: 0.74,
+                                            ),
+                                            itemBuilder: (context, index) {
+                                              if (isMostWatchedView) {
+                                                final it = shownMovies[index];
+                                                return _DiaryGridCardMostWatched(
+                                                  title: it.title,
+                                                  posterUrl: it.posterUrl,
+                                                  rating: it.avgRating,
+                                                  watchCount: it.watchCount,
+                                                  onTap: () {
+                                                    final candidates =
+                                                        filtered.where((r) => r.movie.id == it.movieId).toList();
+                                                    if (candidates.isEmpty) return;
+                                                    candidates.sort((a, b) => b.watchDate.compareTo(a.watchDate));
+                                                    openDiaryPopup(context, candidates.first);
+                                                  },
+                                                );
+                                              }
 
-                      // 정렬 칩 + 기간설정
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _SortChip(
-                            label: "최신 관람일",
-                            selected: _sort == RecordSort.latest,
-                            onTap: () => setState(() => _sort = RecordSort.latest),
+                                              final r = shownRecords[index];
+                                              final isRewatch = _isAutoRewatch(r, earliestIdMap);
+
+                                              return _DiaryGridCardRecord(
+                                                title: r.movie.title,
+                                                posterUrl: r.movie.posterUrl,
+                                                rating: r.rating,
+                                                oneLiner: r.oneLiner ?? '',
+                                                dateText: _formatDate(r.watchDate),
+                                                isRewatch: isRewatch,
+                                                onTap: () => openDiaryPopup(context, r),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                ),
+                              ],
+                            ),
                           ),
-                          _SortChip(
-                            label: "평점 순",
-                            selected: _sort == RecordSort.rating,
-                            onTap: () => setState(() => _sort = RecordSort.rating),
-                          ),
-                          _SortChip(
-                            label: "많이 본 순",
-                            selected: _sort == RecordSort.mostWatched,
-                            onTap: () => setState(() => _sort = RecordSort.mostWatched),
-                          ),
-                          _SortChip(
-                            label: _fromDate == null
-                                ? "기간 설정"
-                                : "${_formatDate(_fromDate!)} ~ ${_formatDate(_toDate!)}",
-                            selected: _fromDate != null,
-                            onTap: _openRangeInputDialog,
-                            leadingIcon: Icons.filter_alt_outlined,
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-
-                Expanded(
-                  child: isEmpty
-                      ? Center(
-                          child: Text(
-                            records.isEmpty
-                                ? "아직 기록이 없어요.\n탐색에서 기록 추가를 눌러 추가해보세요!"
-                                : "검색/필터 결과가 없어요.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: textSecondary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        )
-                      : GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 6, 12, 24),
-                          itemCount: isMostWatchedView ? shownMovies.length : shownRecords.length,
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            childAspectRatio: 0.74,
-                          ),
-                          itemBuilder: (context, index) {
-                            // ✅ 많이 본 순: 영화 묶음 카드
-                            if (isMostWatchedView) {
-                              final it = shownMovies[index];
-                              return _DiaryGridCardMostWatched(
-                                title: it.title,
-                                posterUrl: it.posterUrl,
-                                rating: it.avgRating,
-                                watchCount: it.watchCount,
-                                onTap: () {
-                                  // ✅ 해당 movieId의 "최신 기록"으로 팝업 띄우기
-                                  final candidates =
-                                      filtered.where((r) => r.movie.id == it.movieId).toList();
-                                  if (candidates.isEmpty) return;
-
-                                  candidates.sort((a, b) => b.watchDate.compareTo(a.watchDate));
-                                  final latestRecord = candidates.first;
-                                  
-                                  openDiaryPopup(context, latestRecord);
-                                },
-                              );
-                            }
-
-                            // ✅ 최신/평점 순: record 카드
-                            final r = shownRecords[index];
-                            final isRewatch = _isAutoRewatch(r, earliestIdMap);
-
-                            return _DiaryGridCardRecord(
-                              title: r.movie.title,
-                              posterUrl: r.movie.posterUrl,
-                              rating: r.rating,
-                              oneLiner: r.oneLiner ?? '',
-                              dateText: _formatDate(r.watchDate),
-                              isRewatch: isRewatch,
-                              onTap: () {
-                                openDiaryPopup(context, r);
-                              },
-                            );
-                          },
-                        ),
-                ),
-              ],
-            );
-          },
-        ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _SortChip extends StatelessWidget {
+class _SortDropdown extends StatelessWidget {
   final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final IconData? leadingIcon;
+  final ValueChanged<dynamic>? onSelected;
 
-  const _SortChip({
+  const _SortDropdown({
     required this.label,
-    required this.selected,
-    required this.onTap,
-    this.leadingIcon,
+    required this.onSelected,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? const Color(0xFFFFE2F0) : Colors.white;
-    final border = selected ? const Color(0xFFFF8FBF) : const Color(0xFFE6E6E6);
-    const textColor = Color(0xFF444444);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
+    return PopupMenuButton<dynamic>(
+      onSelected: onSelected,
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: RecordSort.latest, child: Text("최신 관람순")),
+        PopupMenuItem(value: RecordSort.rating, child: Text("평점 순")),
+        PopupMenuItem(value: RecordSort.mostWatched, child: Text("많이 본 순")),
+        PopupMenuItem(value: 'range', child: Text("기간 설정")),
+      ],
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: border),
+          color: Colors.white.withOpacity(0.95),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.black12),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (leadingIcon != null) ...[
-              Icon(leadingIcon, size: 14, color: textColor),
-              const SizedBox(width: 6),
-            ],
             Text(
               label,
               style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 12.5,
-                color: textColor,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+                color: Color(0xFF3A2E2E),
               ),
             ),
+            const SizedBox(width: 6),
+            const Icon(Icons.expand_more, size: 18, color: Colors.black54),
           ],
         ),
       ),
@@ -532,7 +515,82 @@ class _SortChip extends StatelessWidget {
   }
 }
 
-/// ✅ 최신/평점 순에서 사용하는 카드(한줄평+날짜+재관람 리본)
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final String hintText;
+
+  const _SearchBar({
+    required this.controller,
+    required this.onChanged,
+    required this.hintText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7EE).withOpacity(0.95),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.search, size: 18, color: Colors.black54),
+          const SizedBox(width: 6),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: hintText,
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RangeInputField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hintText;
+
+  const _RangeInputField({
+    required this.controller,
+    required this.label,
+    required this.hintText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            hintText: hintText,
+            isDense: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+
 class _DiaryGridCardRecord extends StatelessWidget {
   final String title;
   final String posterUrl;
@@ -554,7 +612,7 @@ class _DiaryGridCardRecord extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const radius = 8.0;
+    const radius = 14.0;
 
     return InkWell(
       onTap: onTap,
@@ -564,18 +622,27 @@ class _DiaryGridCardRecord extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(radius),
           border: Border.all(color: const Color(0xFFEDEDED)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(radius),
           child: Stack(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                // ✅ 예전처럼 촘촘하게
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     _StarsDisplay(value: rating),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
+
                     Text(
                       title,
                       maxLines: 1,
@@ -583,53 +650,59 @@ class _DiaryGridCardRecord extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: textPrimary,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.network(
-                          posterUrl,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: Colors.black12,
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.broken_image_outlined),
-                          ),
+                    const SizedBox(height: 2),
+
+                    // ✅ 포스터를 "작게" (잘려도 OK)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        posterUrl,
+                        width: double.infinity,
+                        height: 75, // ⭐ 핵심: 더 작게 → 카드가 납작해짐
+                        fit: BoxFit.cover, // ✅ 잘려도 OK (예전 느낌)
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 66,
+                          color: Colors.black12,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.broken_image_outlined),
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 6),
+
+                    // ✅ 한줄평/날짜 영역이 더 빨리 보이게
                     Text(
                       oneLiner.isEmpty ? '(한줄평 없음)' : oneLiner,
-                      maxLines: 2,
+                      maxLines: 1, // ⭐ 예전 느낌: 1줄
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: textPrimary,
                         fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       dateText,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: textSecondary,
                         fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // ✅ 재관람 빨간 리본
+              // ✅ 재관람 리본 유지
               if (isRewatch)
                 Positioned(
                   left: -26,
@@ -637,7 +710,7 @@ class _DiaryGridCardRecord extends StatelessWidget {
                   child: Transform.rotate(
                     angle: -0.785398,
                     child: Container(
-                      width: 90,
+                      width: 85,
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       color: Colors.red,
                       alignment: Alignment.center,
@@ -645,7 +718,7 @@ class _DiaryGridCardRecord extends StatelessWidget {
                         '재관람',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
+                          fontSize: 9,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -660,7 +733,22 @@ class _DiaryGridCardRecord extends StatelessWidget {
   }
 }
 
-/// ✅ 많이 본 순에서 사용하는 카드(평균별점 + N회 관람)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class _DiaryGridCardMostWatched extends StatelessWidget {
   final String title;
   final String posterUrl;
@@ -678,7 +766,7 @@ class _DiaryGridCardMostWatched extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const radius = 8.0;
+    const radius = 14.0;
 
     return InkWell(
       onTap: onTap,
@@ -688,11 +776,18 @@ class _DiaryGridCardMostWatched extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(radius),
           border: Border.all(color: const Color(0xFFEDEDED)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(radius),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -705,14 +800,14 @@ class _DiaryGridCardMostWatched extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: textPrimary,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Expanded(
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(10),
                     child: Image.network(
                       posterUrl,
                       width: double.infinity,
@@ -732,7 +827,7 @@ class _DiaryGridCardMostWatched extends StatelessWidget {
                   style: TextStyle(
                     color: textSecondary,
                     fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ],
@@ -771,38 +866,6 @@ class _StarsDisplay extends StatelessWidget {
           color: filled ? const Color(0xFFFFC107) : Colors.black26,
         );
       }),
-    );
-  }
-}
-
-class _RangeInputField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final String hintText;
-
-  const _RangeInputField({
-    required this.controller,
-    required this.label,
-    required this.hintText,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            hintText: hintText,
-            isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        ),
-      ],
     );
   }
 }
