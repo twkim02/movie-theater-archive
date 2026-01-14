@@ -33,7 +33,19 @@ movie-theater-archive/
 │   │   ├── add_record_sheet.dart # 기록 추가 바텀 시트
 │   │   ├── theater_card.dart    # 영화관 카드 위젯
 │   │   ├── movie_diary_popup.dart # 영화 일기 팝업
-│   │   └── splash_screen.dart   # 스플래시 화면
+│   │   ├── splash_screen.dart   # 스플래시 화면
+│   │   ├── paper_scaffold.dart  # 노트북 페이퍼 배경 스캐폴드
+│   │   ├── note_card.dart       # 노트 카드 스타일 위젯
+│   │   ├── movie_card.dart      # 영화 카드 위젯 (테이프 포함)
+│   │   ├── diary_record_card.dart # 기록 카드 위젯
+│   │   ├── muvieory_header.dart # 무비어리 헤더 (로고/캐릭터)
+│   │   ├── sticker_button.dart  # 스티커 스타일 버튼
+│   │   ├── sticker_chip.dart    # 스티커 스타일 칩
+│   │   ├── taped_section_title.dart # 테이프가 붙은 섹션 제목
+│   │   ├── diagonal_tape.dart   # 대각선 테이프 위젯
+│   │   ├── taped.dart           # 테이프 데코레이션
+│   │   ├── big_note_frame.dart  # 큰 노트 프레임
+│   │   └── movie_paper_card.dart # 영화 페이퍼 카드
 │   ├── data/                     # 더미 데이터 및 레거시 저장소
 │   │   ├── dummy_movies.dart    # 더미 영화 데이터 (테스트용)
 │   │   ├── dummy_record.dart    # 더미 기록 데이터 (테스트용)
@@ -73,7 +85,8 @@ movie-theater-archive/
 │   ├── state/                    # 전역 상태 관리
 │   │   └── app_state.dart      # AppState (Provider 기반)
 │   └── theme/                    # 테마 및 스타일
-│       └── colors.dart         # 색상 상수 정의
+│       ├── colors.dart         # 색상 상수 정의
+│       └── app_assets.dart     # 앱 에셋 경로 상수
 ├── test/                         # 단위 테스트 및 통합 테스트
 │   ├── data/                    # 데이터 레이어 테스트
 │   ├── models/                  # 모델 테스트
@@ -94,7 +107,20 @@ movie-theater-archive/
 │   │   ├── movie.csv           # 영화 목록
 │   │   └── theater.csv         # 영화관 목록
 │   ├── moviary_icon.png        # 앱 아이콘 (구버전)
-│   └── new_moviary_icon.png    # 앱 아이콘 (신버전)
+│   ├── new_moviary_icon.png    # 앱 아이콘 (신버전)
+│   ├── bg_paper.png            # 배경 페이퍼 이미지
+│   ├── notebook_page.png       # 노트북 페이지 배경 이미지
+│   ├── character.png           # 캐릭터 이미지
+│   ├── characterlogo.png       # 캐릭터 로고 이미지
+│   ├── happy_character.png     # 행복한 캐릭터 이미지
+│   ├── writing_character.png   # 글쓰는 캐릭터 이미지
+│   ├── logo.png                # 로고 이미지
+│   ├── bubble_long.png         # 긴 말풍선 이미지
+│   ├── pinktape.png            # 핑크 테이프 이미지
+│   ├── yellowtape.png          # 옐로우 테이프 이미지
+│   ├── purpletape.png          # 퍼플 테이프 이미지
+│   ├── purpletapeshort.png     # 퍼플 테이프 (짧은 버전)
+│   └── checktape.png           # 체크 테이프 이미지
 ├── android/                      # Android 플랫폼 설정
 ├── ios/                          # iOS 플랫폼 설정
 ├── windows/                      # Windows 플랫폼 설정
@@ -125,14 +151,14 @@ movie-theater-archive/
 |---------|------|---------------|
 | `lib/models/` | 데이터 모델 정의 | 영화, 기록, 위시리스트, 통계 모델 클래스 및 JSON 직렬화/역직렬화 |
 | `lib/screens/` | 화면 위젯 | 4개 탭 화면 (탐색, 일기, 저장, 취향) 및 루트 화면 |
-| `lib/widgets/` | 재사용 위젯 | 기록 추가 바텀 시트, 영화관 카드, 스플래시 화면 등 공통 UI 컴포넌트 |
+| `lib/widgets/` | 재사용 위젯 | 기록 추가 바텀 시트, 영화관 카드, 스플래시 화면, 노트북 페이퍼 테마 위젯(PaperScaffold, NoteCard), 캐릭터 이미지(MuvieoryHeader), 테이프 데코레이션, 영화 카드 등 디자인 시스템 컴포넌트 |
 | `lib/data/` | 더미 데이터 및 레거시 | 더미 데이터 제공 (테스트용), 실제 영화관 조회 로직, 레거시 저장소 (@Deprecated) |
 | `lib/database/` | 데이터베이스 레이어 | SQLite 데이터베이스 헬퍼 클래스 (MovieDatabase) |
 | `lib/repositories/` | Repository 패턴 | 데이터 접근 로직 추상화 (Movie, Record, Wishlist, Tag, Theater) |
-| `lib/services/` | 비즈니스 로직 | 초기화, 갱신, 데이터 마이그레이션, 영화관 상영 시간표, 영화 제목 매칭 서비스 |
+| `lib/services/` | 비즈니스 로직 | 초기화, 갱신, 데이터 마이그레이션, 영화관 상영 시간표, 영화 제목 매칭, CSV 기반 isRecent 플래그 관리, 영화 제목 유효성 검사 서비스 |
 | `lib/api/` | 외부 API 클라이언트 | TMDb API, 카카오 로컬 API, 롯데시네마 API, 메가박스 API 연동 |
 | `lib/state/` | 상태 관리 | Provider 기반 전역 상태 관리 (AppState) |
-| `lib/theme/` | 테마 설정 | 색상, 폰트 등 UI 테마 상수 |
+| `lib/theme/` | 테마 설정 | 색상, 폰트, 앱 에셋 경로 등 UI 테마 상수 |
 | `lib/utils/` | 유틸리티 | 환경 변수 로더, CSV 파서 (롯데시네마/메가박스 데이터) |
 | `test/` | 테스트 코드 | 단위 테스트, 통합 테스트, 영속성 테스트 |
 | `reference_for_ai_agent/` | 참조 문서 | API 명세, DB 스키마, 기능 명세 등 개발 가이드 |
@@ -486,6 +512,9 @@ movie-theater-archive/
 1. **MovieInitializationService** (`lib/services/movie_initialization_service.dart`)
    - TMDb API로 영화 데이터 초기화
    - 현재 상영 중인 영화 및 인기 영화 가져오기
+   - CSV 파일 기반 `isRecent` 플래그 업데이트 (`updateIsRecentBasedOnCsv()`)
+   - 영화 제목 유효성 검사 및 불필요한 영화 제거 (`isValidTitle()`, `removeInvalidTitleMovies()`)
+   - 초기화 시 유효하지 않은 제목의 영화 자동 제거
 
 2. **MovieUpdateService** (`lib/services/movie_update_service.dart`)
    - 현재 상영 중인 영화 자동 갱신
@@ -768,6 +797,10 @@ SQLite
 - **바텀 시트**: 기록 추가 시 모달 바텀 시트 사용
 - **칩(Chip) UI**: 정렬 옵션, 태그 선택 등에 사용
 - **스플래시 화면**: 앱 시작 시 스플래시 화면 표시
+- **노트북 페이퍼 테마**: 배경 이미지로 노트북 페이퍼 스타일 적용 (`bg_paper.png`, `notebook_page.png`)
+- **테이프 데코레이션**: 영화 카드 등에 대각선 테이프 이미지로 손으로 붙인 느낌 연출
+- **캐릭터 이미지**: 화면별 캐릭터 이미지로 친근한 UI 제공 (`character.png`, `happy_character.png`, `writing_character.png`)
+- **말풍선 UI**: 저장 탭 등에서 말풍선 이미지로 안내 메시지 표시 (`bubble_long.png`)
 
 ### 6.4. 앱 아이콘
 
@@ -776,6 +809,42 @@ SQLite
 - **아이콘 생성**: `flutter_launcher_icons` 패키지 사용
 - **적응형 아이콘**: Android/iOS 적응형 아이콘 지원
 - **아이콘 경로**: `assets/new_moviary_icon.png`
+
+### 6.5. 디자인 자산 및 위젯
+
+#### 6.5.1. 배경 이미지
+- **`PaperScaffold`** (`lib/widgets/paper_scaffold.dart`): 노트북 페이퍼 배경 이미지를 적용하는 스캐폴드 위젯
+  - `bg_paper.png`: 취향 탭 등에서 사용
+  - `notebook_page.png`: 일기 탭, 저장 탭에서 사용
+
+#### 6.5.2. 캐릭터 이미지
+- **`MuvieoryHeader`** (`lib/widgets/muvieory_header.dart`): 화면 상단에 캐릭터 로고 또는 로고 표시
+  - `characterlogo.png`: 큰 헤더용 (탐색 탭 등)
+  - `logo.png`: 작은 헤더용
+  - `character.png`: 일기 탭에서 사용
+  - `happy_character.png`: 저장 탭에서 사용
+  - `writing_character.png`: 취향 탭에서 사용
+
+#### 6.5.3. 테이프 데코레이션
+- **테이프 이미지**: 영화 카드 등에 손으로 붙인 느낌의 테이프 이미지 적용
+  - `pinktape.png`: 핑크 테이프
+  - `yellowtape.png`: 옐로우 테이프
+  - `purpletape.png`: 퍼플 테이프
+  - `purpletapeshort.png`: 퍼플 테이프 (짧은 버전)
+  - `checktape.png`: 체크 테이프
+- **`DiagonalTape`**, **`Taped`**: 대각선으로 붙은 테이프 효과를 제공하는 위젯들
+
+#### 6.5.4. 카드 위젯
+- **`NoteCard`** (`lib/widgets/note_card.dart`): 노트 카드 스타일의 컨테이너 (이중 테두리, 그림자 효과)
+- **`MovieCard`** (`lib/widgets/movie_card.dart`): 영화 카드 위젯 (포스터, 제목, 평점, 버튼 포함, 테이프 데코레이션)
+- **`DiaryRecordCard`** (`lib/widgets/diary_record_card.dart`): 일기 기록 카드 위젯
+
+#### 6.5.5. 기타 디자인 위젯
+- **`StickerButton`**: 스티커 스타일 버튼 (그라데이션, 둥근 모서리)
+- **`StickerChip`**: 스티커 스타일 칩 (태그, 정렬 옵션 등에 사용)
+- **`TapedSectionTitle`**: 테이프가 붙은 섹션 제목 위젯
+- **`BigNoteFrame`**: 큰 노트 프레임 위젯
+- **`MoviePaperCard`**: 영화 페이퍼 카드 위젯
 
 ---
 
@@ -797,6 +866,8 @@ SQLite
 2. 기본 사용자(Guest) 생성
 3. 기본 태그 초기화 ("혼자", "친구", "가족", "극장", "OTT")
 4. TMDb API로 영화 데이터 초기화 (또는 더미 데이터)
+5. CSV 파일 기반으로 `isRecent` 플래그 업데이트 (롯데시네마/메가박스 데이터 활용)
+6. 유효하지 않은 제목을 가진 영화 자동 제거 (한글/알파벳/아스키 특수문자만 허용)
 
 **앱 재시작 시:**
 1. DB에서 데이터 자동 로드
@@ -908,14 +979,25 @@ SQLite
 - ✅ **롯데시네마 통합**: 상영 시간표 조회, 영화 상영 여부 확인
 - ✅ **메가박스 통합**: 상영 시간표 조회, 영화 상영 여부 확인
 - ✅ **앱 아이콘**: `flutter_launcher_icons`로 아이콘 생성
-- ✅ **디자인 개선**: 커스텀 폰트 추가 (TypoCrayon), 스플래시 화면 추가
-- ✅ **평점 표시 개선**: 신규 영화(0.0 평점)는 화면에 3.0으로 표시
+- ✅ **디자인 개선**: 
+  - 커스텀 폰트 추가 (TypoCrayon)
+  - 스플래시 화면 추가
+  - 노트북 페이퍼 테마 적용 (배경 이미지)
+  - 캐릭터 이미지 추가 (화면별 다양한 캐릭터)
+  - 테이프 데코레이션 추가 (영화 카드 등)
+  - 말풍선 UI 추가 (저장 탭 등)
+  - 디자인 전용 위젯 라이브러리 구축 (`PaperScaffold`, `NoteCard`, `MovieCard` 등)
+- ✅ **평점 표시 개선**: 신규 영화(0.0 평점)는 화면에 3.0으로 표시 (`displayVoteAverage` getter)
 - ✅ **예매 링크**: 영화관별 예매 URL 자동 생성
+- ✅ **영화 데이터 관리 개선**:
+  - CSV 파일 기반 `isRecent` 플래그 자동 업데이트 기능 추가
+  - 유효하지 않은 제목의 영화 자동 제거 기능 추가 (한글/알파벳/아스키 특수문자만 허용)
+  - 테스트 화면에서 DB 관리 기능 제공
 - ✅ **버그 수정**: 다양한 버그 수정 및 안정성 개선
 
 ---
 
 **문서 작성일**: 2026년 1월  
-**최종 업데이트**: 2026년 1월 (롯데시네마/메가박스 통합, 상영관 보기 기능 추가 반영)  
+**최종 업데이트**: 2026년 1월 (디자인 시스템 개선, CSV 기반 isRecent 플래그 관리, 영화 제목 유효성 검사 기능 추가 반영)  
 **프로젝트 버전**: 1.0.0+1  
 **Flutter SDK**: ^3.10.7
